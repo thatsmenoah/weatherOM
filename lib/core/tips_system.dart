@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 /// Анализирует текущую погоду, прогноз и время суток
 class TipsSystem {
   
-  /// Главный метод анализа погоды и генерации совета
-  /// ПРИОРИТЕТЫ: рассвет > закат > снег > дождь > обычная погода
   Map<String, dynamic>? analyzeWeatherForTips(
     Map<String, dynamic>? weatherData, 
     Map<String, dynamic>? forecastData
@@ -19,34 +17,27 @@ class TipsSystem {
     final timeToSunrise = sunrise.difference(now).inHours;
     final timeToSunset = sunset.difference(now).inHours;
     
-    // ПРИОРИТЕТ №1: Рассвет через час
     if (timeToSunrise >= 0 && timeToSunrise < 1) {
       return _createSunriseTip(sunrise);
     }
     
-    // ПРИОРИТЕТ №2: Закат через час
     if (timeToSunset >= 0 && timeToSunset < 1) {
       return _createSunsetTip(sunset);
     }
     
-    // Получаем прогноз на следующий час
     final nextHourData = _getWeatherForNextHour(forecastData);
     
-    // ПРИОРИТЕТ №3: Снег в ближайший час
     if (nextHourData != null && _willSnowInNextHour(nextHourData)) {
       return _createSnowTip();
     }
     
-    // ПРИОРИТЕТ №4: Дождь в ближайший час
     if (nextHourData != null && _willRainInNextHour(nextHourData)) {
       return _createRainTip(nextHourData);
     }
     
-    // ПРИОРИТЕТ №5: Обычный совет по текущей погоде (с учётом времени суток)
     return _createWeatherTip(weatherData);
   }
   
-  /// Получение данных о погоде на следующий час
   Map<String, dynamic>? _getWeatherForNextHour(Map<String, dynamic>? forecastData) {
     if (forecastData == null) return null;
     
@@ -87,7 +78,6 @@ class TipsSystem {
            pop > 0.3;
   }
   
-  /// Вспомогательный метод для определения времени суток
   String _getTimeOfDay() {
     final hour = DateTime.now().hour;
     if (hour >= 23 || hour <= 4) return 'night';
@@ -98,14 +88,14 @@ class TipsSystem {
   
   Map<String, dynamic> _createSnowTip() {
     final messages = [
-      "Скоро пойдет снег. Или он уже идёт.",
-      "Одевайтесь теплее.",
-      "На дорогах может быть скользко, будьте осторожны!"
+      "Ожидается снег в ближайшее время.",
+      "На улице снег - одевайтесь теплее.",
+      "Возможна скользкая дорога, будьте аккуратны."
     ];
     
     return {
       'type': 'snow',
-      'title': 'Ожидается снегопад',
+      'title': 'Снегопад',
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
       'color': const Color(0xFF9E9E9E),
@@ -117,9 +107,9 @@ class TipsSystem {
     final pop = (hourData['pop'] ?? 0.5) * 100;
     
     final messages = [
-      "Не забудьте зонт.",
-      "Лучше надеть непромокаемую обувь.",
-      "Будьте аккуратны на дороге."
+      "Ожидается дождь - возьмите зонт.",
+      "Возможны осадки, лучше одеться соответствующе.",
+      "На улице может идти дождь, учитывайте это при выходе."
     ];
     
     final intensity = pop > 70 ? "сильный" : (pop > 40 ? "умеренный" : "небольшой");
@@ -136,14 +126,14 @@ class TipsSystem {
   
   Map<String, dynamic> _createSunriseTip(DateTime sunrise) {
     final messages = [
-      "Скоро светает.",
-      "Можно встретить новый день с чашкой кофе.",
-      "Отличное время чтобы проснуться."
+      "Скоро рассвет.",
+      "Начинается новый день.",
+      "Хорошее время для утреннего пробуждения."
     ];
     
     return {
       'type': 'sunrise',
-      'title': 'Рассвет уже здесь',
+      'title': 'Рассвет',
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': 'В ${_formatTime(sunrise)}',
       'color': const Color(0xFF9E9E9E),
@@ -153,14 +143,14 @@ class TipsSystem {
   
   Map<String, dynamic> _createSunsetTip(DateTime sunset) {
     final messages = [
-      "Скоро стемнеет.",
-      "Самое время для прогулки.",
-      "Вечер обещает быть красивым."
+      "Скоро закат.",
+      "День подходит к завершению.",
+      "Вечером станет темнее."
     ];
     
     return {
       'type': 'sunset',
-      'title': 'Закат через час',
+      'title': 'Закат',
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': 'В ${_formatTime(sunset)}',
       'color': const Color(0xFF9E9E9E),
@@ -168,7 +158,6 @@ class TipsSystem {
     };
   }
   
-  /// Маршрутизация советов по погоде с учётом времени суток и температуры
   Map<String, dynamic> _createWeatherTip(Map<String, dynamic> weatherData) {
     final weatherMain = weatherData['weather'][0]['main'].toLowerCase();
     final temp = weatherData['main']['temp'].round();
@@ -176,17 +165,14 @@ class TipsSystem {
     final humidity = weatherData['main']['humidity'].toDouble();
     final timeOfDay = _getTimeOfDay();
     
-    // Ночные советы (23:00 - 4:00)
     if (timeOfDay == 'night') {
       return _createNightTip(temp, weatherMain);
     }
     
-    // Утренние советы (5:00 - 10:00)
     if (timeOfDay == 'morning') {
       return _createMorningTip(temp, humidity, weatherMain);
     }
     
-    // Дневные/вечерние советы по погоде
     switch(weatherMain) {
       case 'clear':
         return _createClearSkyTip(temp, feelsLike);
@@ -209,29 +195,16 @@ class TipsSystem {
     }
   }
   
-  /// Ночной совет (с учётом температуры)
   Map<String, dynamic> _createNightTip(int temp, String weatherMain) {
     final messages = [
-      "Время спать, проветрите комнату.",
-      "Спокойной ночи. Температура $temp°C.",
-      "На улице $temp°C. Лучше оставаться в тепле."
+      "Сейчас ночь, лучше отдохнуть.",
+      "На улице $temp°C - проветрите перед сном.",
+      "Температура $temp°C, спите в комфортных условиях."
     ];
-    
-    // Если очень холодно
-    if (temp <= 0) {
-      return {
-        'type': 'night',
-        'title': 'Холодная ночь',
-        'message': 'На улице $temp°C. Проветрите комнату за 30 минут до сна.',
-        'time': '$temp°C',
-        'color': const Color(0xFF9E9E9E),
-        'icon': Icons.nightlight_round,
-      };
-    }
     
     return {
       'type': 'night',
-      'title': 'Время спать',
+      'title': 'Ночь',
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
@@ -239,42 +212,38 @@ class TipsSystem {
     };
   }
   
-  /// Утренний совет (с учётом температуры и влажности)
   Map<String, dynamic> _createMorningTip(int temp, double humidity, String weatherMain) {
-    // Если холодно
     if (temp <= 5) {
       return {
         'type': 'morning',
-        'title': 'Свежее утро',
-        'message': 'На улице $temp°C. Проветрите, но не надолго.',
+        'title': 'Холодное утро',
+        'message': 'На улице $temp°C, одевайтесь теплее.',
         'time': '$temp°C',
         'color': const Color(0xFF9E9E9E),
         'icon': Icons.wb_sunny,
       };
     }
     
-    // Если комфортная температура
-    final messages = [
-      "Приоткройте окно, на улице свежо.",
-      "Хорошее утро для проветривания.",
-      "На улице $temp°C, можно подышать свежим воздухом."
-    ];
-    
-    // Если высокая влажность
     if (humidity > 70) {
       return {
         'type': 'morning',
         'title': 'Влажное утро',
-        'message': 'На улице $temp°C. Влажность ${humidity.round()}%, проветрите.',
+        'message': 'Температура $temp°C, влажность высокая - возможна духота.',
         'time': '${humidity.round()}%',
         'color': const Color(0xFF9E9E9E),
         'icon': Icons.wb_sunny,
       };
     }
     
+    final messages = [
+      "Утро комфортное, можно проветрить помещение.",
+      "На улице $temp°C - нормальная погода для начала дня.",
+      "Свежий воздух, хорошее утро."
+    ];
+    
     return {
       'type': 'morning',
-      'title': 'Доброе утро',
+      'title': 'Утро',
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
@@ -284,14 +253,14 @@ class TipsSystem {
   
   Map<String, dynamic> _createClearSkyTip(int temp, int feelsLike) {
     final messages = [
-      "Хорошая погода для прогулки.",
-      "Можно проветрить квартиру.",
-      "Солнечный день."
+      "Ясная погода, хорошее время для прогулки.",
+      "Солнечно, можно выйти на улицу.",
+      "Комфортная погода для активности."
     ];
     
     return {
       'type': 'clear',
-      'title': 'Ясная погода',
+      'title': 'Ясно',
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': 'Ощущается как $feelsLike°C',
       'color': const Color(0xFF9E9E9E),
@@ -301,16 +270,16 @@ class TipsSystem {
   
   Map<String, dynamic> _createCloudsTip(int temp) {
     final messages = [
-      "Облачно, но без осадков.",
-      "На улице серо.",
-      "Можно выйти подышать."
+      "Облачно, без осадков.",
+      "Пасмурно, но стабильно.",
+      "Нормальная погода для дел вне дома."
     ];
     
     return {
       'type': 'clouds',
-      'title': 'Облачная погода',
+      'title': 'Облачно',
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Температура $temp°C',
+      'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.cloud,
     };
@@ -318,16 +287,16 @@ class TipsSystem {
   
   Map<String, dynamic> _createRainyTip() {
     final messages = [
-      "Идет дождь.",
-      "Окна лучше закрыть.",
-      "На улице мокро."
+      "Идёт дождь, лучше взять зонт.",
+      "Осадки на улице, учитывайте это.",
+      "Мокрая погода, будьте осторожны."
     ];
     
     return {
       'type': 'rain',
-      'title': 'Дождливая погода',
+      'title': 'Дождь',
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Осадки ожидаются',
+      'time': 'Осадки',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.beach_access,
     };
@@ -335,16 +304,16 @@ class TipsSystem {
   
   Map<String, dynamic> _createSnowyTip(int temp) {
     final messages = [
-      "Снежно.",
-      "Одевайтесь теплее.",
-      "Коммунальные службы уже работают."
+      "Снег на улице, одевайтесь теплее.",
+      "Зимняя погода, возможен гололёд.",
+      "Холодно и снежно."
     ];
     
     return {
       'type': 'snow',
-      'title': 'Снежная погода',
+      'title': 'Снег',
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Температура $temp°C',
+      'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.ac_unit,
     };
@@ -352,16 +321,16 @@ class TipsSystem {
   
   Map<String, dynamic> _createThunderstormTip() {
     final messages = [
-      "Гроза. Лучше быть дома.",
-      "Отключите технику от розеток.",
-      "Не стойте под деревьями."
+      "Гроза, лучше оставаться в помещении.",
+      "Штормовая погода, соблюдайте осторожность.",
+      "Возможны разряды молний."
     ];
     
     return {
       'type': 'thunderstorm',
       'title': 'Гроза',
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Будьте осторожны',
+      'time': 'Опасные условия',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.flash_on,
     };
@@ -369,9 +338,9 @@ class TipsSystem {
   
   Map<String, dynamic> _createDrizzleTip() {
     final messages = [
-      "Моросит.",
-      "Зонт брать не обязательно.",
-      "Влажность повышена."
+      "Морось, возможна влажность.",
+      "Лёгкие осадки.",
+      "Слабый дождь."
     ];
     
     return {
@@ -386,16 +355,16 @@ class TipsSystem {
   
   Map<String, dynamic> _createFoggyTip() {
     final messages = [
-      "Туманно.",
-      "Снизьте скорость на дороге.",
-      "Видимость плохая."
+      "Туман, ограниченная видимость.",
+      "Будьте осторожны на дороге.",
+      "Плохая видимость."
     ];
     
     return {
       'type': 'fog',
       'title': 'Туман',
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Плохая видимость',
+      'time': 'Сниженная видимость',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.foggy,
     };
@@ -403,16 +372,16 @@ class TipsSystem {
   
   Map<String, dynamic> _createDefaultTip() {
     final messages = [
-      "Погода не помеха хорошему настроению.",
+      "Обычная погода, действуйте по ситуации.",
       "Одевайтесь по погоде.",
-      "Следите за прогнозом."
+      "Следите за изменениями прогноза."
     ];
     
     return {
       'type': 'default',
-      'title': 'Совет дня',
+      'title': 'Совет',
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Хорошего дня',
+      'time': 'Без особенностей',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.coffee,
     };

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/weather_service.dart';
+import '../constants/favorites_const.dart';
 
 // ========== МОДЕЛЬ ЛОКАЦИИ ==========
 
@@ -25,20 +26,20 @@ class FavoriteLocation {
   });
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'country': country,
-    'lat': lat,
-    'lon': lon,
-    'isFavorite': isFavorite,
-  };
+        'name': name,
+        'country': country,
+        'lat': lat,
+        'lon': lon,
+        'isFavorite': isFavorite,
+      };
 
   factory FavoriteLocation.fromJson(Map<String, dynamic> json) => FavoriteLocation(
-    name: json['name'],
-    country: json['country'],
-    lat: (json['lat'] as num).toDouble(),
-    lon: (json['lon'] as num).toDouble(),
-    isFavorite: json['isFavorite'] ?? false,
-  );
+        name: json['name'],
+        country: json['country'],
+        lat: (json['lat'] as num).toDouble(),
+        lon: (json['lon'] as num).toDouble(),
+        isFavorite: json['isFavorite'] ?? false,
+      );
 }
 
 // ========== СЕРВИС СОХРАНЕНИЯ (с кэшем в памяти) ==========
@@ -47,15 +48,14 @@ class FavoritesStorage {
   static const String _favoritesKey = 'favorites_locations';
   static const String _recentKey = 'recent_searches';
   static const String _priorityKey = 'priority_location';
-  
+
   static List<FavoriteLocation>? _cachedFavorites;
   static FavoriteLocation? _cachedRecent;
   static FavoriteLocation? _cachedPriority;
 
   static Future<void> preload() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // Загружаем избранное
+
     final favData = prefs.getString(_favoritesKey);
     if (favData != null) {
       final List<dynamic> decoded = json.decode(favData);
@@ -63,14 +63,12 @@ class FavoritesStorage {
     } else {
       _cachedFavorites = [];
     }
-    
-    // Загружаем последний поиск
+
     final recentData = prefs.getString(_recentKey);
     if (recentData != null) {
       _cachedRecent = FavoriteLocation.fromJson(json.decode(recentData));
     }
-    
-    // Загружаем приоритетный город
+
     final priorityData = prefs.getString(_priorityKey);
     if (priorityData != null) {
       _cachedPriority = FavoriteLocation.fromJson(json.decode(priorityData));
@@ -135,17 +133,17 @@ class FavoritesScreen extends StatefulWidget {
 class _FavoritesScreenState extends State<FavoritesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  
+
   List<FavoriteLocation> _searchResults = [];
   List<FavoriteLocation> _favorites = [];
   FavoriteLocation? _recentSearch;
   FavoriteLocation? _currentLocation;
   FavoriteLocation? _priorityLocation;
-  
+
   bool _isSearching = false;
   bool _showSearchResults = false;
 
-final List<Map<String, dynamic>> _citiesDatabase = [
+  final List<Map<String, dynamic>> _citiesDatabase = [
     // Россия
     {'name': 'Москва', 'country': 'Россия', 'lat': 55.7558, 'lon': 37.6173},
     {'name': 'Санкт-Петербург', 'country': 'Россия', 'lat': 59.9343, 'lon': 30.3351},
@@ -183,7 +181,6 @@ final List<Map<String, dynamic>> _citiesDatabase = [
     {'name': 'Гай', 'country': 'Россия', 'lat': 51.4667, 'lon': 58.4500},
     {'name': 'Орёл', 'country': 'Россия', 'lat': 52.9651, 'lon': 36.0785},
     {'name': 'Тверь', 'country': 'Россия', 'lat': 56.8587, 'lon': 35.9176},
-    
     // Европа
     {'name': 'Минск', 'country': 'Беларусь', 'lat': 53.9006, 'lon': 27.5590},
     {'name': 'Киев', 'country': 'Украина', 'lat': 50.4501, 'lon': 30.5234},
@@ -197,7 +194,6 @@ final List<Map<String, dynamic>> _citiesDatabase = [
     {'name': 'Варшава', 'country': 'Польша', 'lat': 52.2297, 'lon': 21.0122},
     {'name': 'Амстердам', 'country': 'Нидерланды', 'lat': 52.3676, 'lon': 4.9041},
     {'name': 'Стокгольм', 'country': 'Швеция', 'lat': 59.3293, 'lon': 18.0686},
-    
     // Азия
     {'name': 'Пекин', 'country': 'Китай', 'lat': 39.9042, 'lon': 116.4074},
     {'name': 'Шанхай', 'country': 'Китай', 'lat': 31.2304, 'lon': 121.4737},
@@ -210,7 +206,6 @@ final List<Map<String, dynamic>> _citiesDatabase = [
     {'name': 'Сингапур', 'country': 'Сингапур', 'lat': 1.3521, 'lon': 103.8198},
     {'name': 'Дубай', 'country': 'ОАЭ', 'lat': 25.2048, 'lon': 55.2708},
     {'name': 'Стамбул', 'country': 'Турция', 'lat': 41.0082, 'lon': 28.9784},
-    
     // Америка
     {'name': 'Нью-Йорк', 'country': 'США', 'lat': 40.7128, 'lon': -74.0060},
     {'name': 'Лос-Анджелес', 'country': 'США', 'lat': 34.0522, 'lon': -118.2437},
@@ -219,12 +214,10 @@ final List<Map<String, dynamic>> _citiesDatabase = [
     {'name': 'Мехико', 'country': 'Мексика', 'lat': 19.4326, 'lon': -99.1332},
     {'name': 'Сан-Паулу', 'country': 'Бразилия', 'lat': -23.5505, 'lon': -46.6333},
     {'name': 'Буэнос-Айрес', 'country': 'Аргентина', 'lat': -34.6037, 'lon': -58.3816},
-    
     // Африка
     {'name': 'Каир', 'country': 'Египет', 'lat': 30.0444, 'lon': 31.2357},
-    {'name': 'Кейптаун', 'country': 'ЮАР', 'lat': -33.9249, 'lon': 18.4241},
+    {'name': 'Кейптаун', 'country': 'ЮАР', 'lat': -33.9241, 'lon': 18.4241},
     {'name': 'Лагос', 'country': 'Нигерия', 'lat': 6.5244, 'lon': 3.3792},
-    
     // Австралия и Океания
     {'name': 'Сидней', 'country': 'Австралия', 'lat': -33.8688, 'lon': 151.2093},
     {'name': 'Мельбурн', 'country': 'Австралия', 'lat': -37.8136, 'lon': 144.9631},
@@ -234,13 +227,11 @@ final List<Map<String, dynamic>> _citiesDatabase = [
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    
-    // МГНОВЕННАЯ загрузка из кэша в памяти
+
     _favorites = FavoritesStorage.getFavorites();
     _recentSearch = FavoritesStorage.getRecent();
     _priorityLocation = FavoritesStorage.getPriority();
-    
-    // Сразу показываем заглушку, потом обновим название
+
     _currentLocation = FavoriteLocation(
       name: 'Определение...',
       country: 'Россия',
@@ -248,17 +239,15 @@ final List<Map<String, dynamic>> _citiesDatabase = [
       lon: 37.6173,
       isCurrent: true,
     );
-    
-    // Получаем РЕАЛЬНЫЙ GPS в фоне
+
     _getRealLocation();
   }
 
   Future<void> _getRealLocation() async {
     try {
       final position = await WeatherService.getCurrentPosition();
-      
       if (!mounted) return;
-      
+
       setState(() {
         _currentLocation = FavoriteLocation(
           name: 'Определение...',
@@ -268,15 +257,15 @@ final List<Map<String, dynamic>> _citiesDatabase = [
           isCurrent: true,
         );
       });
-      
+
       String cityName = 'Текущее местоположение';
       try {
         final data = await WeatherService.fetchAllWeatherData(position.latitude, position.longitude);
         cityName = data['weather']['name'] ?? cityName;
       } catch (_) {}
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _currentLocation = FavoriteLocation(
           name: cityName,
@@ -310,11 +299,11 @@ final List<Map<String, dynamic>> _citiesDatabase = [
 
   void _onSearchChanged() {
     final query = _searchController.text.trim().toLowerCase();
-    
+
     setState(() {
       _isSearching = query.isNotEmpty;
       _showSearchResults = query.isNotEmpty;
-      
+
       if (query.isNotEmpty) {
         _searchResults = _citiesDatabase
             .where((city) => city['name'].toString().toLowerCase().contains(query))
@@ -334,7 +323,7 @@ final List<Map<String, dynamic>> _citiesDatabase = [
 
   void _selectLocation(FavoriteLocation location) {
     HapticFeedback.mediumImpact();
-    
+
     if (!location.isCurrent) {
       setState(() {
         _recentSearch = FavoriteLocation(
@@ -345,12 +334,12 @@ final List<Map<String, dynamic>> _citiesDatabase = [
           isFavorite: _favorites.any((f) => f.name == location.name && f.lat == location.lat),
         );
       });
-      
+
       FavoritesStorage.saveRecentSearch(_recentSearch!);
     }
-    
+
     widget.onLocationSelected?.call(location);
-    
+
     if (mounted) {
       Navigator.pop(context);
     }
@@ -358,14 +347,12 @@ final List<Map<String, dynamic>> _citiesDatabase = [
 
   void _toggleFavorite(FavoriteLocation location) {
     if (location.isCurrent) return;
-    
+
     HapticFeedback.lightImpact();
-    
+
     setState(() {
-      final index = _favorites.indexWhere(
-        (f) => f.name == location.name && f.lat == location.lat
-      );
-      
+      final index = _favorites.indexWhere((f) => f.name == location.name && f.lat == location.lat);
+
       if (index >= 0) {
         _favorites.removeAt(index);
       } else {
@@ -377,25 +364,17 @@ final List<Map<String, dynamic>> _citiesDatabase = [
           isFavorite: true,
         ));
       }
-      
-      if (_recentSearch != null && 
-          _recentSearch!.name == location.name && 
-          _recentSearch!.lat == location.lat) {
-        _recentSearch!.isFavorite = _favorites.any(
-          (f) => f.name == location.name && f.lat == location.lat
-        );
+
+      if (_recentSearch != null && _recentSearch!.name == location.name && _recentSearch!.lat == location.lat) {
+        _recentSearch!.isFavorite = _favorites.any((f) => f.name == location.name && f.lat == location.lat);
       }
-      
-      final searchIndex = _searchResults.indexWhere(
-        (s) => s.name == location.name && s.lat == location.lat
-      );
+
+      final searchIndex = _searchResults.indexWhere((s) => s.name == location.name && s.lat == location.lat);
       if (searchIndex >= 0) {
-        _searchResults[searchIndex].isFavorite = _favorites.any(
-          (f) => f.name == location.name && f.lat == location.lat
-        );
+        _searchResults[searchIndex].isFavorite = _favorites.any((f) => f.name == location.name && f.lat == location.lat);
       }
     });
-    
+
     FavoritesStorage.saveFavorites(_favorites);
     if (_recentSearch != null) {
       FavoritesStorage.saveRecentSearch(_recentSearch!);
@@ -404,18 +383,14 @@ final List<Map<String, dynamic>> _citiesDatabase = [
 
   void _togglePriority(FavoriteLocation location) {
     if (location.isCurrent) return;
-    
+
     HapticFeedback.heavyImpact();
-    
+
     setState(() {
-      // Если уже приоритетный — снимаем
-      if (_priorityLocation != null && 
-          _priorityLocation!.name == location.name && 
-          _priorityLocation!.lat == location.lat) {
+      if (_priorityLocation != null && _priorityLocation!.name == location.name && _priorityLocation!.lat == location.lat) {
         _priorityLocation = null;
         FavoritesStorage.savePriority(null);
       } else {
-        // Иначе назначаем новый приоритет
         _priorityLocation = FavoriteLocation(
           name: location.name,
           country: location.country,
@@ -424,11 +399,8 @@ final List<Map<String, dynamic>> _citiesDatabase = [
           isFavorite: true,
         );
         FavoritesStorage.savePriority(_priorityLocation);
-        
-        // Автоматически добавляем в избранное при установке приоритета
-        final favIndex = _favorites.indexWhere(
-          (f) => f.name == location.name && f.lat == location.lat
-        );
+
+        final favIndex = _favorites.indexWhere((f) => f.name == location.name && f.lat == location.lat);
         if (favIndex < 0) {
           _favorites.add(FavoriteLocation(
             name: location.name,
@@ -450,55 +422,46 @@ final List<Map<String, dynamic>> _citiesDatabase = [
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.transparent,
-    body: Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF080808), // Очень темный, почти черный
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildSearchBar(),
-            Expanded(
-              child: _showSearchResults && _isSearching
-                  ? _buildSearchResults()
-                  : _buildMainList(),
-            ),
-          ],
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(color: FavoritesConst.bgScreen),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildSearchBar(),
+              Expanded(
+                child: _showSearchResults && _isSearching ? _buildSearchResults() : _buildMainList(),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
+      padding: FavoritesConst.padHeader,
       child: Row(
         children: [
           GestureDetector(
             onTap: widget.onBackPressed ?? () => Navigator.pop(context),
             child: Container(
-              width: 44,
-              height: 44,
+              width: FavoritesConst.headerButtonSize,
+              height: FavoritesConst.headerButtonSize,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                color: FavoritesConst.bgHeaderButton,
+                borderRadius: BorderRadius.circular(FavoritesConst.radiusHeaderButton),
+                border: favoritesDefaultBorder01(),
               ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.arrow_back_ios_new_rounded, color: FavoritesConst.textPrimary, size: FavoritesConst.headerIconSize),
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Избранное',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white),
-            ),
-          ),
+          const Expanded(child: Text('Избранное', style: FavoritesConst.tsHeaderTitle)),
           if (_isSearching)
             GestureDetector(
               onTap: () {
@@ -506,13 +469,13 @@ Widget build(BuildContext context) {
                 _searchFocusNode.unfocus();
               },
               child: Container(
-                width: 44,
-                height: 44,
+                width: FavoritesConst.headerButtonSize,
+                height: FavoritesConst.headerButtonSize,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(14),
+                  color: FavoritesConst.bgHeaderButton,
+                  borderRadius: BorderRadius.circular(FavoritesConst.radiusHeaderButton),
                 ),
-                child: Icon(Icons.close_rounded, color: Colors.white.withValues(alpha: 0.6), size: 22),
+                child: Icon(Icons.close_rounded, color: Colors.white.withValues(alpha: 0.6), size: FavoritesConst.headerCloseIconSize),
               ),
             ),
         ],
@@ -522,31 +485,27 @@ Widget build(BuildContext context) {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: FavoritesConst.padSearchBar,
       child: Container(
-        height: 48,
+        height: FavoritesConst.searchBarHeight,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _searchFocusNode.hasFocus
-                ? Colors.white.withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.08),
-          ),
+          color: FavoritesConst.bgSearchBar,
+          borderRadius: BorderRadius.circular(FavoritesConst.radiusSearchBar),
+          border: _searchFocusNode.hasFocus ? favoritesFocusedBorder() : favoritesDefaultBorder(),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(FavoritesConst.radiusSearchBar),
           child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: ui.ImageFilter.blur(sigmaX: FavoritesConst.blurSearchBar, sigmaY: FavoritesConst.blurSearchBar),
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
-              cursorColor: Colors.white.withValues(alpha: 0.6),
+              style: FavoritesConst.tsSearchInput,
+              cursorColor: FavoritesConst.textCursor,
               decoration: InputDecoration(
                 hintText: 'Поиск города...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 15),
-                prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withValues(alpha: 0.4), size: 22),
+                hintStyle: FavoritesConst.tsSearchHint,
+                prefixIcon: Icon(Icons.search_rounded, color: FavoritesConst.textSearchIcon, size: FavoritesConst.searchIconSize),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -561,7 +520,7 @@ Widget build(BuildContext context) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: FavoritesConst.padMainList,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -571,14 +530,12 @@ Widget build(BuildContext context) {
               _buildCurrentLocationCard(_currentLocation!),
               const SizedBox(height: 24),
             ],
-
             if (_recentSearch != null) ...[
               _buildSectionHeader('Недавно искали'),
               const SizedBox(height: 8),
               _buildLocationCard(location: _recentSearch!, showStar: true, showPriority: true),
               const SizedBox(height: 24),
             ],
-
             _buildSectionHeader('Избранные локации'),
             const SizedBox(height: 8),
             if (_favorites.isEmpty)
@@ -589,7 +546,7 @@ Widget build(BuildContext context) {
         ),
       ),
     );
-}
+  }
 
   Widget _buildEmptyState() {
     return Padding(
@@ -597,11 +554,11 @@ Widget build(BuildContext context) {
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.favorite_outline_rounded, color: Colors.white.withValues(alpha: 0.15), size: 56),
+            Icon(Icons.favorite_outline_rounded, color: Colors.white.withValues(alpha: 0.15), size: FavoritesConst.emptyIconSize),
             const SizedBox(height: 16),
-            Text('Нет избранных локаций', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.35))),
+            Text('Нет избранных локаций', style: FavoritesConst.tsEmptyTitle),
             const SizedBox(height: 6),
-            Text('Используйте поиск, чтобы добавить город', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.2))),
+            Text('Используйте поиск, чтобы добавить город', style: FavoritesConst.tsEmptySubtitle),
           ],
         ),
       ),
@@ -614,9 +571,9 @@ Widget build(BuildContext context) {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off_rounded, color: Colors.white.withValues(alpha: 0.2), size: 48),
+            Icon(Icons.search_off_rounded, color: FavoritesConst.textVeryDim, size: FavoritesConst.emptySearchIconSize),
             const SizedBox(height: 12),
-            Text('Город не найден', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.4))),
+            Text('Город не найден', style: FavoritesConst.tsSearchEmpty),
           ],
         ),
       );
@@ -625,7 +582,7 @@ Widget build(BuildContext context) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: FavoritesConst.padMainList,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -641,54 +598,61 @@ Widget build(BuildContext context) {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
-      child: Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.4), letterSpacing: 1.2)),
+      child: Text(title, style: FavoritesConst.tsSectionHeader),
     );
   }
 
   Widget _buildCurrentLocationCard(FavoriteLocation location) {
     return FadeInWrapper(
-      duration: const Duration(milliseconds: 400),
+      duration: FavoritesConst.durCardFadeCurrent,
       offsetY: 10,
       child: GestureDetector(
         onTap: () => _selectLocation(location),
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF3b82f6).withValues(alpha: 0.25)),
+            color: FavoritesConst.bgCard,
+            borderRadius: BorderRadius.circular(FavoritesConst.radiusCard),
+            border: favoritesBlueBorder(),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(FavoritesConst.radiusCard),
             child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              filter: ui.ImageFilter.blur(sigmaX: FavoritesConst.blurCard, sigmaY: FavoritesConst.blurCard),
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: FavoritesConst.padCardContent,
                 child: Row(
                   children: [
                     Container(
-                      width: 44, height: 44,
-                      decoration: BoxDecoration(color: const Color(0xFF3b82f6).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
-                      child: const Icon(Icons.near_me_rounded, color: Color(0xFF3b82f6), size: 24),
+                      width: FavoritesConst.cardIconBoxSize,
+                      height: FavoritesConst.cardIconBoxSize,
+                      decoration: BoxDecoration(
+                        color: FavoritesConst.accentBlue.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(FavoritesConst.radiusIconBox),
+                      ),
+                      child: const Icon(Icons.near_me_rounded, color: FavoritesConst.accentBlue, size: FavoritesConst.cardIconSize),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(location.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                          Text(location.name, style: FavoritesConst.tsLocationName),
                           const SizedBox(height: 2),
-                          Text(location.country, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+                          Text(location.country, style: FavoritesConst.tsLocationCountry),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFF3b82f6).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                      child: Text('Сейчас', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF3b82f6).withValues(alpha: 0.9))),
+                      padding: FavoritesConst.padBadge,
+                      decoration: BoxDecoration(
+                        color: FavoritesConst.bgBadge,
+                        borderRadius: BorderRadius.circular(FavoritesConst.radiusBadge),
+                      ),
+                      child: Text('Сейчас', style: FavoritesConst.tsBadgeText),
                     ),
                     const SizedBox(width: 8),
-                    Icon(Icons.star_outline_rounded, color: Colors.white.withValues(alpha: 0.15), size: 24),
+                    Icon(Icons.star_outline_rounded, color: FavoritesConst.textVeryDim2, size: FavoritesConst.actionIconSize),
                   ],
                 ),
               ),
@@ -700,15 +664,15 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildLocationCard({
-    required FavoriteLocation location, 
-    bool showStar = true, 
+    required FavoriteLocation location,
+    bool showStar = true,
     bool showPriority = false,
   }) {
     final isFav = _favorites.any((f) => f.name == location.name && f.lat == location.lat);
     final isPriority = _isPriority(location);
-    
+
     return FadeInWrapper(
-      duration: const Duration(milliseconds: 300),
+      duration: FavoritesConst.durCardFade,
       offsetY: 20,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 8),
@@ -716,34 +680,29 @@ Widget build(BuildContext context) {
           onTap: () => _selectLocation(location),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isPriority 
-                    ? const Color(0xFFef4444).withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.08),
-              ),
+              color: FavoritesConst.bgCardSecondary,
+              borderRadius: BorderRadius.circular(FavoritesConst.radiusCard),
+              border: isPriority ? favoritesRedBorder() : favoritesDefaultBorder(),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(FavoritesConst.radiusCard),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                filter: ui.ImageFilter.blur(sigmaX: FavoritesConst.blurSearchBar, sigmaY: FavoritesConst.blurSearchBar),
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: FavoritesConst.padCardContent,
                   child: Row(
                     children: [
                       Container(
-                        width: 44, height: 44,
+                        width: FavoritesConst.cardIconBoxSize,
+                        height: FavoritesConst.cardIconBoxSize,
                         decoration: BoxDecoration(
-                          color: isPriority 
-                              ? const Color(0xFFef4444).withValues(alpha: 0.1)
-                              : Colors.white.withValues(alpha: 0.05), 
-                          borderRadius: BorderRadius.circular(14),
+                          color: isPriority ? FavoritesConst.accentRed.withValues(alpha: 0.1) : FavoritesConst.bgIconBox,
+                          borderRadius: BorderRadius.circular(FavoritesConst.radiusIconBox),
                         ),
                         child: Icon(
                           isPriority ? Icons.push_pin_rounded : Icons.location_on_outlined,
-                          color: isPriority ? const Color(0xFFef4444) : Colors.white,
-                          size: 24,
+                          color: isPriority ? FavoritesConst.accentRed : FavoritesConst.textPrimary,
+                          size: FavoritesConst.cardIconSize,
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -753,63 +712,56 @@ Widget build(BuildContext context) {
                           children: [
                             Row(
                               children: [
-                                Flexible(
-                                  child: Text(
-                                    location.name, 
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-                                  ),
-                                ),
+                                Flexible(child: Text(location.name, style: FavoritesConst.tsLocationName)),
                                 if (isPriority) ...[
                                   const SizedBox(width: 6),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: FavoritesConst.padPriorityBadge,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFef4444).withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(6),
+                                      color: FavoritesConst.bgPriorityBadge,
+                                      borderRadius: BorderRadius.circular(FavoritesConst.radiusPriorityBadge),
                                     ),
-                                    child: const Text(
-                                      'Приоритет',
-                                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFef4444)),
-                                    ),
+                                    child: const Text('Приоритет', style: FavoritesConst.tsPriorityBadgeText),
                                   ),
                                 ],
                               ],
                             ),
                             const SizedBox(height: 2),
-                            Text(location.country, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+                            Text(location.country, style: FavoritesConst.tsLocationCountry),
                           ],
                         ),
                       ),
                       if (showStar && !location.isCurrent) ...[
-                        // Восклицательный знак приоритета
                         GestureDetector(
                           onTap: () => _togglePriority(location),
                           child: Container(
-                            width: 40, height: 40,
+                            width: FavoritesConst.actionButtonSize,
+                            height: FavoritesConst.actionButtonSize,
                             decoration: BoxDecoration(
-                              color: isPriority 
-                                  ? const Color(0xFFef4444).withValues(alpha: 0.15)
-                                  : Colors.white.withValues(alpha: 0.04), 
-                              borderRadius: BorderRadius.circular(12),
+                              color: isPriority ? FavoritesConst.bgPriorityBadge : FavoritesConst.bgIconBoxWhite,
+                              borderRadius: BorderRadius.circular(FavoritesConst.radiusActionButton),
                             ),
                             child: Icon(
                               Icons.priority_high_rounded,
-                              color: isPriority ? const Color(0xFFef4444) : Colors.white.withValues(alpha: 0.3),
-                              size: 24,
+                              color: isPriority ? FavoritesConst.accentRed : FavoritesConst.textVeryDim2,
+                              size: FavoritesConst.actionIconSize,
                             ),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        // Звёздочка избранного
                         GestureDetector(
                           onTap: () => _toggleFavorite(location),
                           child: Container(
-                            width: 40, height: 40,
-                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.04), borderRadius: BorderRadius.circular(12)),
+                            width: FavoritesConst.actionButtonSize,
+                            height: FavoritesConst.actionButtonSize,
+                            decoration: BoxDecoration(
+                              color: FavoritesConst.bgIconBoxWhite,
+                              borderRadius: BorderRadius.circular(FavoritesConst.radiusActionButton),
+                            ),
                             child: Icon(
                               isFav ? Icons.star_rounded : Icons.star_outline_rounded,
-                              color: isFav ? const Color(0xFFffd700) : Colors.white.withValues(alpha: 0.3),
-                              size: 24,
+                              color: isFav ? FavoritesConst.accentGold : FavoritesConst.textVeryDim2,
+                              size: FavoritesConst.actionIconSize,
                             ),
                           ),
                         ),
