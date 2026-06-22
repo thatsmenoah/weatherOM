@@ -483,6 +483,9 @@ Future<void> _saveToStorage() async {
     String description = weatherData!['weather'][0]['description'];
     String iconCode = weatherData!['weather'][0]['icon'];
     
+    // Делаем описание с заглавной буквы
+    String capitalizedDescription = description[0].toUpperCase() + description.substring(1);
+    
     return FadeInWrapper(
       child: Container(
         decoration: BoxDecoration(
@@ -527,21 +530,31 @@ Future<void> _saveToStorage() async {
                   const SizedBox(height: 20),
                   Center(child: Text('$temp°', style: const TextStyle(fontSize: 72, fontWeight: FontWeight.w800, color: Colors.white, shadows: [Shadow(blurRadius: 12, color: Colors.black26)]))),
                   const SizedBox(height: 8),
-                  Center(child: Text(description, style: const TextStyle(fontSize: 16, color: Color(0xFFa0a0a0), fontWeight: FontWeight.w600))),
+                  // ОПИСАНИЕ ПОГОДЫ - БЕЛОЕ, ЖИРНОЕ, С ЗАГЛАВНОЙ БУКВЫ, ЧУТЬ МЕНЬШЕ
+                  Center(
+                    child: Text(
+                      capitalizedDescription,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      Expanded(child: _buildDetailCard(value: '${humidity.round()}%', label: 'Влажность', color: const Color(0xFF10b981), progress: humidity / 100)),
+                      Expanded(child: _buildDetailCard(value: '${humidity.round()}%', label: 'Влажность', color: const Color(0xFF10b981))),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildDetailCard(value: '${windSpeed.round()} км/ч', label: 'Ветер ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}', color: const Color(0xFFef4444), progress: (windSpeed / 20).clamp(0.0, 1.0))),
+                      Expanded(child: _buildDetailCard(value: '${windSpeed.round()} км/ч', label: 'Ветер ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}', color: const Color(0xFFef4444))),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _buildDetailCard(value: '${pressure.round()} мм', label: 'Давление', color: const Color(0xFF3b82f6), progress: ((pressure - 700) / (800 - 700)).clamp(0.0, 1.0))),
+                      Expanded(child: _buildDetailCard(value: '${pressure.round()} мм', label: 'Давление', color: const Color(0xFF3b82f6))),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildDetailCard(value: '$feelsLike°', label: 'Ощущается', color: Colors.white, progress: 0.5, useWhiteProgress: true)),
+                      Expanded(child: _buildDetailCard(value: '$feelsLike°', label: 'Ощущается', color: Colors.white)),
                     ],
                   ),
                 ],
@@ -553,19 +566,33 @@ Future<void> _saveToStorage() async {
     );
   }
 
-  Widget _buildDetailCard({required String value, required String label, required Color color, double? progress, bool useWhiteProgress = false}) {
+// КАРТОЧКИ БОЛЬШЕ, ЖИРНЕЕ, НАДПИСЬ БЛИЖЕ К ПОКАЗАНИЮ
+Widget _buildDetailCard({required String value, required String label, required Color color}) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
       child: Column(
         children: [
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFFa0a0a0), fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(value: progress?.clamp(0.0, 1.0) ?? 0.5, backgroundColor: Colors.white.withValues(alpha: 0.1), valueColor: AlwaysStoppedAnimation<Color>(useWhiteProgress ? Colors.white : color), minHeight: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2), // Было 8, теперь ближе
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFFa0a0a0),
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -782,7 +809,7 @@ Future<void> _saveToStorage() async {
                   Row(children: [const Icon(Icons.air, color: Color(0xFF4ecdc4), size: 16), const SizedBox(width: 8), const Text('Качество воздуха', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white))]),
                   const SizedBox(height: 12),
                   Center(child: Column(children: [
-                    Text(aqiText, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: aqiColor, shadows: [Shadow(blurRadius: 6, color: aqiColor.withValues(alpha: 0.4))])),
+                    Text(aqiText, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: aqiColor, shadows: [Shadow(blurRadius: 6, color: aqiColor.withValues(alpha: 0.4))])),
                     const SizedBox(height: 4),
                     const Text('Качество воздуха', style: TextStyle(fontSize: 12, color: Color(0xFFa0a0a0))),
                   ])),
