@@ -191,74 +191,74 @@ class _ChartsSheetState extends State<ChartsSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: Color(0xFF191919),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(
-          top: BorderSide(color: Color(0xFF2A2A2A), width: 1),
-          left: BorderSide(color: Color(0xFF2A2A2A), width: 1),
-          right: BorderSide(color: Color(0xFF2A2A2A), width: 1),
+Widget build(BuildContext context) {
+  return Container(
+    height: MediaQuery.of(context).size.height * 0.7,
+    decoration: const BoxDecoration(
+      color: Color(0xFF080808), // Очень темный, почти черный
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      border: Border(
+        top: BorderSide(color: Color(0xFF2A2A2A), width: 1),
+        left: BorderSide(color: Color(0xFF2A2A2A), width: 1),
+        right: BorderSide(color: Color(0xFF2A2A2A), width: 1),
+      ),
+    ),
+    child: Column(
+      children: [
+        const SizedBox(height: 12),
+        // Полоска для свайпа
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFF3A3A3A),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          // Полоска для свайпа
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFF3A3A3A),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+        const SizedBox(height: 8),
+        // Заголовок
+        const Text(
+          'Графики',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: 0.5,
           ),
-          const SizedBox(height: 8),
-          // Заголовок
-          const Text(
-            'Графики',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Скроллимый контент
-          Expanded(
-            child: _tempPoints.isEmpty 
-              ? const Center(
-                  child: Text(
-                    'Нет данных прогноза',
-                    style: TextStyle(color: Color(0xFFa0a0a0), fontSize: 16),
-                  ),
-                )
-              : SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: [
-                      _buildQuickSummary(),
-                      const SizedBox(height: 20),
-                      _buildTemperatureGraph(),
-                      const SizedBox(height: 20),
-                      _buildMiniCharts(),
-                      const SizedBox(height: 16),
-                      _buildFooter(),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
+        ),
+        const SizedBox(height: 16),
+        // Скроллимый контент
+        Expanded(
+          child: _tempPoints.isEmpty 
+            ? const Center(
+                child: Text(
+                  'Нет данных прогноза',
+                  style: TextStyle(color: Color(0xFFa0a0a0), fontSize: 16),
                 ),
-          ),
-        ],
-      ),
-    );
-  }
+              )
+            : SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    _buildQuickSummary(),
+                    const SizedBox(height: 20),
+                    _buildTemperatureGraph(),
+                    const SizedBox(height: 20),
+                    _buildMiniCharts(),
+                    const SizedBox(height: 16),
+                    _buildFooter(),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+        ),
+      ],
+    ),
+  );
+}
 
   // ========== 1. БЫСТРАЯ СВОДКА ==========
   Widget _buildQuickSummary() {

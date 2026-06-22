@@ -128,45 +128,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0f0f0f), Color(0xFF1a1a1a)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildDataSection(),  // ← переименовал
-                        const SizedBox(height: 24),
-                        _buildReportSection(),
-                        const SizedBox(height: 24),
-                        _buildAboutSection(),
-                      ],
-                    ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.transparent,
+    body: Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF080808), // Очень темный, почти черный
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDataSection(),
+                      const SizedBox(height: 24),
+                      _buildReportSection(),
+                      const SizedBox(height: 24),
+                      _buildAboutSection(),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeader() {
     return Padding(

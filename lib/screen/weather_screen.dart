@@ -5,7 +5,8 @@ import '../core/tips_system.dart';
 import '../core/loading_system.dart';
 import '../services/weather_service.dart';
 import '../utils/weather_utils.dart';
-import '../screen/favorites_screen.dart'; 
+import '../screen/favorites_screen.dart';
+import '../screen/header.dart';
 
 // ========== АНИМИРОВАННАЯ КАРТОЧКА СОВЕТА ==========
 
@@ -163,18 +164,36 @@ class WeatherScreenState extends State<WeatherScreen> {
   final LoadingStateManager _loadingManager = LoadingStateManager();
   
   bool _showStatusToast = false;
+  bool _showCompactHeader = false;
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _loadingManager.dispose();
     super.dispose();
+  }
+
+  // ========== ОТСЛЕЖИВАНИЕ СКРОЛЛА ==========
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    
+    final scrollOffset = _scrollController.offset;
+    const threshold = 250.0;
+    
+    if (scrollOffset > threshold && !_showCompactHeader) {
+      setState(() => _showCompactHeader = true);
+    } else if (scrollOffset <= threshold && _showCompactHeader) {
+      setState(() => _showCompactHeader = false);
+    }
   }
 
   // ========== НОВАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ ==========
@@ -380,36 +399,59 @@ Future<void> _saveToStorage() async {
   // ========== UI ==========
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0f0f0f), Color(0xFF1a1a1a)],
-        ),
+Widget build(BuildContext context) {
+  return Container(
+    decoration: const BoxDecoration(
+      color: Color(0xFF080808), // Очень темный, почти черный
+    ),
+    child: SafeArea(
+      child: Stack(
+        children: [
+          _buildContent(),
+          
+          // КОМПАКТНЫЙ ХЕДЕР (из header.dart)
+          if (weatherData != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _showCompactHeader ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: AnimatedSlide(
+                  offset: _showCompactHeader ? Offset.zero : const Offset(0, -0.15),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  child: CompactWeatherHeader(
+                    cityName: cityName,
+                    temp: weatherData!['main']['temp'].round(),
+                    feelsLike: weatherData!['main']['feels_like'].round(),
+                    iconCode: weatherData!['weather'][0]['icon'],
+                    description: weatherData!['weather'][0]['description'],
+                    now: DateTime.now(),
+                  ),
+                ),
+              ),
+            ),
+          
+          if (_loadingManager.isRefreshing)
+            const LoadingOverlay(),
+          if (_showStatusToast)
+            StatusToast(
+              isVisible: _showStatusToast,
+              title: _loadingManager.isApiError ? 'Перебои API' : 'Проблемы с подключением:(',
+              subtitle: _loadingManager.isApiError 
+                  ? 'Подождите когда API даст ответ, временные перебои. Используем сохранённые данные'
+                  : 'Используем сохранённые данные',
+              icon: _loadingManager.isApiError ? Icons.cloud_off : Icons.wifi_off,
+              onDismiss: () => setState(() => _showStatusToast = false),
+            ),
+        ],
       ),
-      child: SafeArea(
-        child: Stack(
-          children: [
-            _buildContent(),
-            if (_loadingManager.isRefreshing)
-              const LoadingOverlay(),
-            if (_showStatusToast)
-  StatusToast(
-    isVisible: _showStatusToast,
-    title: _loadingManager.isApiError ? 'Перебои API' : 'Проблемы с подключением:(',
-    subtitle: _loadingManager.isApiError 
-        ? 'Подождите когда API даст ответ, временные перебои. Используем сохранённые данные'
-        : 'Используем сохранённые данные',
-    icon: _loadingManager.isApiError ? Icons.cloud_off : Icons.wifi_off,
-    onDismiss: () => setState(() => _showStatusToast = false),
-  ),
-          ],
-        ),
-      ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildContent() {
     // Если нет данных и есть ошибка
@@ -544,15 +586,15 @@ Future<void> _saveToStorage() async {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      Expanded(child: _buildDetailCard(value: '${humidity.round()}%', label: 'Влажность', color: const Color(0xFF10b981))),
+                      Expanded(child: _buildDetailCard(value: '${humidity.round()}%', label: 'Влажность', color: Colors.white)),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildDetailCard(value: '${windSpeed.round()} км/ч', label: 'Ветер ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}', color: const Color(0xFFef4444))),
+                      Expanded(child: _buildDetailCard(value: '${windSpeed.round()} км/ч', label: 'Ветер ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}', color: Colors.white)),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _buildDetailCard(value: '${pressure.round()} мм', label: 'Давление', color: const Color(0xFF3b82f6))),
+                      Expanded(child: _buildDetailCard(value: '${pressure.round()} мм', label: 'Давление', color: Colors.white)),
                       const SizedBox(width: 10),
                       Expanded(child: _buildDetailCard(value: '$feelsLike°', label: 'Ощущается', color: Colors.white)),
                     ],

@@ -102,41 +102,37 @@ class _ActivityScreenState extends State<ActivityScreen> {
   String _getCityName() => weatherData?['name'] ?? 'Загрузка...';
   double _getAirQualityScore() => WeatherUtils.calculateAirQualityScore(airQualityData);
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0f0f0f), Color(0xFF1a1a1a)],
-        ),
-      ),
-      child: SafeArea(
-        child: Stack(
-          children: [
-            if (isLoading && weatherData == null)
-              const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  strokeWidth: 3,
-                ),
-              )
-            else if (errorMessage.isNotEmpty && weatherData == null)
-              _buildError()
-            else
-              RefreshIndicator(
-                onRefresh: _refreshData,
-                color: Colors.white,
-                child: _buildContent(),
+ @override
+Widget build(BuildContext context) {
+  return Container(
+    decoration: const BoxDecoration(
+      color: Color(0xFF080808), // Очень темный, почти черный
+    ),
+    child: SafeArea(
+      child: Stack(
+        children: [
+          if (isLoading && weatherData == null)
+            const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                strokeWidth: 3,
               ),
-            
-            if (isRefreshing) _buildRefreshOverlay(),
-          ],
-        ),
+            )
+          else if (errorMessage.isNotEmpty && weatherData == null)
+            _buildError()
+          else
+            RefreshIndicator(
+              onRefresh: _refreshData,
+              color: Colors.white,
+              child: _buildContent(),
+            ),
+          
+          if (isRefreshing) _buildRefreshOverlay(),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildRefreshOverlay() {
     return Container(
