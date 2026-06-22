@@ -1,5 +1,5 @@
 name: weather_app
-description: "See the real weather in Weather Flux"
+description: "See the real weather in Weather Cloud"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -33,6 +33,6 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/app_icon.png"
+  image_path: "assets/icon/appicon.png"
   adaptive_icon_background: "#191919"
   min_sdk_android: 21
