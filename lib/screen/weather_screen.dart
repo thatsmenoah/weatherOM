@@ -34,7 +34,7 @@ class AnimatedTipCard extends StatefulWidget {
 
 class _AnimatedTipCardState extends State<AnimatedTipCard>
     with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
+  AnimationController? _pulseController;
 
   @override
   void initState() {
@@ -50,7 +50,7 @@ class _AnimatedTipCardState extends State<AnimatedTipCard>
   @override
   void dispose() {
     if (widget.isImportant) {
-      _pulseController.dispose();
+      _pulseController?.dispose();
     }
     super.dispose();
   }
@@ -123,16 +123,16 @@ class _AnimatedTipCardState extends State<AnimatedTipCard>
       ),
     );
 
-    if (widget.isImportant) {
+    if (widget.isImportant && _pulseController != null) {
       return RepaintBoundary(
         child: AnimatedBuilder(
-          animation: _pulseController,
+          animation: _pulseController!,
           builder: (context, child) => Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(WeatherConst.radiusTipCard),
               border: Border.all(
                 color: widget.accentColor.withValues(
-                  alpha: 0.2 + _pulseController.value * 0.2,
+                  alpha: 0.2 + _pulseController!.value * 0.2,
                 ),
                 width: 1,
               ),
@@ -545,12 +545,11 @@ class WeatherScreenState extends State<WeatherScreen> {
   DateTime now = DateTime.now();
   double humidity = weatherData!['main']['humidity'].toDouble();
   double windSpeed = weatherData!['wind']['speed'].toDouble();
-  double pressure = WeatherUtils.convertPressureToMmhg(weatherData!['main']['pressure'].toDouble());
   int temp = weatherData!['main']['temp'].round();
   int feelsLike = weatherData!['main']['feels_like'].round();
   String description = weatherData!['weather'][0]['description'];
   String iconCode = weatherData!['weather'][0]['icon'];
-  String capitalizedDescription = description[0].toUpperCase() + description.substring(1);
+  String capitalizedDescription = WeatherUtils.capitalize(description);
 
   return FadeInWrapper(
     child: Container(
@@ -566,7 +565,7 @@ class WeatherScreenState extends State<WeatherScreen> {
           ),
         ],
       ),
-      child: ClipRRect(
+       child: ClipRRect(
         borderRadius: BorderRadius.circular(WeatherConst.radiusCard),
         child: Padding(
           padding: WeatherConst.padCardContent,
@@ -589,7 +588,6 @@ class WeatherScreenState extends State<WeatherScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            // ===== УБРАЛИ СИНИЙ "КЕШ" =====
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -625,7 +623,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                 children: [
                   Expanded(
                     child: _buildDetailCard(
-                      value: '${humidity.round()}%',
+                      value: WeatherUtils.formatHumidity(humidity),
                       label: 'Влажность',
                       color: WeatherConst.textPrimary,
                     ),
@@ -633,8 +631,8 @@ class WeatherScreenState extends State<WeatherScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildDetailCard(
-                      value: '${windSpeed.round()} км/ч',
-                      label: 'Ветер ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}',
+                      value: WeatherUtils.formatWindSpeed(windSpeed),
+                      label: 'Ветер: ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}',
                       color: WeatherConst.textPrimary,
                     ),
                   ),
@@ -645,7 +643,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                 children: [
                   Expanded(
                     child: _buildDetailCard(
-                      value: '${pressure.round()} мм',
+                      value: WeatherUtils.formatPressure(weatherData!['main']['pressure'].toDouble()),
                       label: 'Давление',
                       color: WeatherConst.textPrimary,
                     ),
@@ -653,7 +651,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildDetailCard(
-                      value: '$feelsLike°',
+                      value: WeatherUtils.formatTemp(feelsLike),
                       label: 'Ощущается',
                       color: WeatherConst.textPrimary,
                     ),
@@ -717,72 +715,86 @@ class WeatherScreenState extends State<WeatherScreen> {
   }
 
   Widget _buildHourlyForecast() {
-    if (forecastData == null) return const SizedBox.shrink();
-    List<dynamic> list = forecastData!['list'];
-    List<Widget> hourlyWidgets = [];
-    for (int i = 0; i < 8 && i < list.length; i++) {
-      var item = list[i];
-      DateTime time = DateTime.parse(item['dt_txt']);
-      String hour = i == 0 ? 'Сейчас' : '${time.hour}:00';
-      double temp = item['main']['temp'];
-      String iconCode = item['weather'][0]['icon'];
-      String shortDesc = WeatherUtils.getShortWeatherDescription(iconCode);
-      hourlyWidgets.add(FadeInWrapper(
-        duration: Duration(milliseconds: 300 + (i * 50)),
-        offsetY: 20,
-        child: _forecastItem(hour, shortDesc, iconCode, '${temp.round()}°'),
-      ));
-    }
-    return Column(children: hourlyWidgets);
+  if (forecastData == null) return const SizedBox.shrink();
+  List<dynamic> list = forecastData!['list'];
+  List<Widget> hourlyWidgets = [];
+  
+  for (int i = 0; i < 8 && i < list.length; i++) {
+    var item = list[i];
+    DateTime time = DateTime.parse(item['dt_txt']);
+    bool isNow = i == 0;
+    String hour = WeatherUtils.formatForecastTime(time, isNow);
+    double temp = item['main']['temp'];
+    String iconCode = item['weather'][0]['icon'];
+    String shortDesc = WeatherUtils.getShortWeatherDescription(iconCode);
+    
+    hourlyWidgets.add(FadeInWrapper(
+      duration: Duration(milliseconds: 300 + (i * 50)),
+      offsetY: 20,
+      child: _forecastItem(hour, shortDesc, iconCode, WeatherUtils.formatTemp(temp)),
+    ));
   }
+  return Column(children: hourlyWidgets);
+}
 
   Widget _buildTipCard() {
-    if (_cachedTip == null || _cachedTip!.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    final tip = _cachedTip!;
-    final isImportant = tip['type'] == 'rain' || tip['type'] == 'snow';
-    
-    return AnimatedTipCard(
-      title: tip['title'],
-      message: tip['message'],
-      timeText: tip['time'],
-      accentColor: tip['color'],
-      icon: tip['icon'],
-      isImportant: isImportant,
-    );
+  if (_cachedTip == null || _cachedTip!.isEmpty) {
+    return const SizedBox.shrink();
   }
+  
+  final tip = _cachedTip!;
+  final isImportant = WeatherUtils.isTipImportant(tip);
+  
+  return AnimatedTipCard(
+    title: tip['title'],
+    message: tip['message'],
+    timeText: tip['time'],
+    accentColor: tip['color'],
+    icon: tip['icon'],
+    isImportant: isImportant,
+  );
+}
 
   Widget _buildDailyForecast() {
-    if (forecastData == null) return const SizedBox.shrink();
-    Map<String, Map<String, dynamic>> dailyForecast = {};
-    List<dynamic> list = forecastData!['list'];
-    for (var item in list) {
-      String date = item['dt_txt'].split(' ')[0];
-      if (!dailyForecast.containsKey(date) && dailyForecast.length < 5) {
-        dailyForecast[date] = item;
-      }
+  if (forecastData == null) return const SizedBox.shrink();
+  
+  Map<String, Map<String, dynamic>> dailyForecast = {};
+  List<dynamic> list = forecastData!['list'];
+  
+  for (var item in list) {
+    String date = item['dt_txt'].split(' ')[0];
+    if (!dailyForecast.containsKey(date) && dailyForecast.length < 5) {
+      dailyForecast[date] = item;
     }
-    List<Widget> dailyWidgets = [];
-    int index = 0;
-    dailyForecast.forEach((date, item) {
-      DateTime dateTime = DateTime.parse(date);
-      String weekday = WeatherConst.daysOfWeekFull[dateTime.weekday % 7];
-      double temp = item['main']['temp'];
-      String iconCode = item['weather'][0]['icon'];
-      String shortDesc = WeatherUtils.getShortWeatherDescription(iconCode);
-      dailyWidgets.add(
-        FadeInWrapper(
-          duration: Duration(milliseconds: 300 + (index * 50)),
-          offsetY: 20,
-          child: _forecastItem(weekday, shortDesc, iconCode, '${temp.round()}°', isDaily: true),
-        ),
-      );
-      index++;
-    });
-    return Column(children: dailyWidgets);
   }
+  
+  List<Widget> dailyWidgets = [];
+  int index = 0;
+  dailyForecast.forEach((date, item) {
+    DateTime dateTime = DateTime.parse(date);
+    String weekday = WeatherUtils.getWeekday(dateTime);
+    
+    // Для первых двух дней используем "Сегодня" и "Завтра"
+    String label = WeatherUtils.getDailyForecastLabel(index);
+    if (label.isNotEmpty) {
+      weekday = label;
+    }
+    
+    double temp = item['main']['temp'];
+    String iconCode = item['weather'][0]['icon'];
+    String shortDesc = WeatherUtils.getShortWeatherDescription(iconCode);
+    
+    dailyWidgets.add(
+      FadeInWrapper(
+        duration: Duration(milliseconds: 300 + (index * 50)),
+        offsetY: 20,
+        child: _forecastItem(weekday, shortDesc, iconCode, WeatherUtils.formatTemp(temp), isDaily: true),
+      ),
+    );
+    index++;
+  });
+  return Column(children: dailyWidgets);
+}
 
   Widget _forecastItem(String time, String desc, String iconCode, String temp, {bool isDaily = false}) {
     return Container(
@@ -811,57 +823,57 @@ class WeatherScreenState extends State<WeatherScreen> {
   // ========== КАРТОЧКА СОЛНЦА ==========
   
   Widget _buildSunCard() {
-    if (sunData == null) return const SizedBox.shrink();
-    
-    final sunrise = sunData!['sunrise'] as DateTime?;
-    final sunset = sunData!['sunset'] as DateTime?;
-    
-    if (sunrise == null || sunset == null) return const SizedBox.shrink();
-    
-    return FadeInWrapper(
-      child: Container(
-        decoration: BoxDecoration(
-          color: WeatherConst.bgCard,
-          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
-          border: Border.all(color: WeatherConst.bgCardLighter),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
-          child: Padding(
-            padding: WeatherConst.padGlassCardContent,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  const Icon(Icons.wb_sunny, color: WeatherConst.textPrimary, size: 16),
-                  const SizedBox(width: 8),
-                  const Text('Солнце', style: WeatherConst.tsGlassCardTitle),
-                ]),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildSunItem(
-                      '${sunrise.hour.toString().padLeft(2, '0')}:${sunrise.minute.toString().padLeft(2, '0')}',
-                      'Рассвет',
-                      WeatherConst.accentSunYellow,
-                      WeatherConst.accentSunOrange,
-                    ),
-                    _buildSunItem(
-                      '${sunset.hour.toString().padLeft(2, '0')}:${sunset.minute.toString().padLeft(2, '0')}',
-                      'Закат',
-                      WeatherConst.accentSunsetRed,
-                      WeatherConst.accentSunOrange,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+  if (sunData == null) return const SizedBox.shrink();
+  
+  final sunrise = sunData!['sunrise'] as DateTime?;
+  final sunset = sunData!['sunset'] as DateTime?;
+  
+  if (sunrise == null || sunset == null) return const SizedBox.shrink();
+  
+  return FadeInWrapper(
+    child: Container(
+      decoration: BoxDecoration(
+        color: WeatherConst.bgCard,
+        borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
+        border: Border.all(color: WeatherConst.bgCardLighter),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
+        child: Padding(
+          padding: WeatherConst.padGlassCardContent,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.wb_sunny, color: WeatherConst.textPrimary, size: 16),
+                const SizedBox(width: 8),
+                const Text('Солнце', style: WeatherConst.tsGlassCardTitle),
+              ]),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildSunItem(
+                    '${sunrise.hour.toString().padLeft(2, '0')}:${sunrise.minute.toString().padLeft(2, '0')}',
+                    'Рассвет',
+                    WeatherConst.accentSunYellow,
+                    WeatherConst.accentSunOrange,
+                  ),
+                  _buildSunItem(
+                    '${sunset.hour.toString().padLeft(2, '0')}:${sunset.minute.toString().padLeft(2, '0')}',
+                    'Закат',
+                    WeatherConst.accentSunsetRed,
+                    WeatherConst.accentSunOrange,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSunItem(String time, String label, Color color1, Color color2) {
     return Container(

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../constants/weather_const.dart';
 
 class WeatherUtils {
+  // ========== СУЩЕСТВУЮЩИЕ МЕТОДЫ ==========
+
   // Форматирование даты
   static String formatDate(DateTime date) {
     final months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -10,7 +13,7 @@ class WeatherUtils {
 
   // Направление ветра
   static String getWindDirection(int degrees) {
-    List<String> directions = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
+    List<String> directions = ['Север', 'С-В', 'Восток', 'Ю-В', 'Юг', 'Ю-З', 'Запад', 'С-З'];
     int index = ((degrees + 22) ~/ 45) % 8;
     return directions[index];
   }
@@ -23,7 +26,7 @@ class WeatherUtils {
       case 3: return 'Умеренное';
       case 4: return 'Плохое';
       case 5: return 'Очень плохое';
-      default: return 'Нет данных на';
+      default: return 'Нет данных';
     }
   }
 
@@ -85,6 +88,67 @@ class WeatherUtils {
   // Конвертация давления из гПа в мм рт. ст.
   static double convertPressureToMmhg(double pressureHpa) {
     return pressureHpa * 0.750062;
+  }
+
+  // ========== НОВЫЕ UI-МЕТОДЫ ==========
+
+  // Капитализация строки
+  static String capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
+  // Форматирование времени прогноза
+  static String formatForecastTime(DateTime time, bool isNow) {
+    return isNow ? 'Сейчас' : '${time.hour}:00';
+  }
+
+  // Получение дня недели
+  static String getWeekday(DateTime date) {
+    return WeatherConst.daysOfWeekFull[date.weekday % 7];
+  }
+
+  // Форматирование температуры
+  static String formatTemp(num temp) => '${temp.round()}°';
+
+  // Форматирование температуры с ощущением
+  static String formatTempWithFeelsLike(num temp, num feelsLike) {
+    return '${temp.round()}° (ощущается ${feelsLike.round()}°)';
+  }
+
+  // Проверка важности совета
+  static bool isTipImportant(Map<String, dynamic> tip) {
+    return tip['type'] == 'rain' || tip['type'] == 'snow';
+  }
+
+  // Получение метки для дня прогноза
+  static String getDailyForecastLabel(int index) {
+    switch(index) {
+      case 0: return 'Сегодня';
+      case 1: return 'Завтра';
+      default: return '';
+    }
+  }
+
+  // Форматирование скорости ветра
+  static String formatWindSpeed(double speedMs) {
+    return '${(speedMs * 3.6).round()} км/ч';
+  }
+
+  // Форматирование влажности
+  static String formatHumidity(double humidity) {
+    return '${humidity.round()}%';
+  }
+
+  // Форматирование давления
+  static String formatPressure(double pressureHpa) {
+    return '${convertPressureToMmhg(pressureHpa).round()} мм';
+  }
+
+  // Получение времени из строки (для прогноза)
+  static String extractHourFromDateTime(String dtTxt) {
+    final time = DateTime.parse(dtTxt);
+    return '${time.hour}:00';
   }
 
   // ========== МЕТОДЫ ДЛЯ АКТИВНОСТЕЙ ==========
