@@ -8,6 +8,7 @@ class CompactWeatherHeader extends StatelessWidget {
   final String iconCode;
   final String description;
   final DateTime now;
+  final bool isUsingFallback; // НОВЫЙ ПАРАМЕТР
 
   const CompactWeatherHeader({
     super.key,
@@ -17,6 +18,7 @@ class CompactWeatherHeader extends StatelessWidget {
     required this.iconCode,
     required this.description,
     required this.now,
+    this.isUsingFallback = false, // ПО УМОЛЧАНИЮ FALSE
   });
 
   @override
@@ -47,17 +49,25 @@ class CompactWeatherHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ЛОКАЦИЯ
-          Text(
-            cityName,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              height: 1.1,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          // ЛОКАЦИЯ С ИНДИКАТОРОМ ИСТОЧНИКА
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  cityName,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // ===== ИНДИКАТОР ИСТОЧНИКА ДАННЫХ =====
+              
+            ],
           ),
           const SizedBox(height: 32),
           // Основной ряд
@@ -84,7 +94,7 @@ class CompactWeatherHeader extends StatelessWidget {
                     '$feelsLike°',
                     style: const TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.w900, // ← БЫЛО w700, СТАЛО w900
+                      fontWeight: FontWeight.w900,
                       color: Colors.white,
                       height: 1,
                     ),
@@ -94,7 +104,7 @@ class CompactWeatherHeader extends StatelessWidget {
                     '$weekday, $time',
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w800, // ← БЫЛО w700, СТАЛО w800
+                      fontWeight: FontWeight.w800,
                       color: Colors.white,
                       height: 1,
                     ),

@@ -68,74 +68,57 @@ class _AnimatedTipCardState extends State<AnimatedTipCard>
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(WeatherConst.radiusTipCard),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 2,
-                color: widget.accentColor.withValues(alpha: 0.4),
+        child: Padding(
+          padding: WeatherConst.padTipCard,
+          child: Row(
+            children: [
+              Container(
+                width: WeatherConst.tipDotSize,
+                height: WeatherConst.tipDotSize,
+                decoration: BoxDecoration(
+                  color: WeatherConst.bgForecastItem,
+                  borderRadius: BorderRadius.circular(WeatherConst.radiusTipIcon),
+                  border: Border.all(
+                    color: widget.accentColor.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    widget.icon,
+                    color: widget.accentColor,
+                    size: WeatherConst.tipIconSize,
+                  ),
+                ),
               ),
-            ),
-            // BackdropFilter убран — заменён на полупрозрачный фон
-            Padding(
-              padding: WeatherConst.padTipCard,
-              child: Row(
-                children: [
-                  Container(
-                    width: WeatherConst.tipDotSize,
-                    height: WeatherConst.tipDotSize,
-                    decoration: BoxDecoration(
-                      color: WeatherConst.bgForecastItem,
-                      borderRadius:
-                          BorderRadius.circular(WeatherConst.radiusTipIcon),
-                      border: Border.all(
-                        color: widget.accentColor.withValues(alpha: 0.15),
-                      ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: WeatherConst.tsTipTitle.copyWith(color: widget.accentColor),
                     ),
-                    child: Center(
-                      child: Icon(
-                        widget.icon,
-                        color: widget.accentColor,
-                        size: WeatherConst.tipIconSize,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.title,
-                          style: WeatherConst.tsTipTitle
-                              .copyWith(color: widget.accentColor),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(widget.message, style: WeatherConst.tsTipMessage),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: WeatherConst.padTimeBadge,
-                    decoration: BoxDecoration(
-                      color: widget.accentColor.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(
-                          WeatherConst.radiusTimeBadge),
-                    ),
-                    child: Text(
-                      widget.timeText,
-                      style: WeatherConst.tsTipTime.copyWith(
-                        color: widget.accentColor.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(widget.message, style: WeatherConst.tsTipMessage),
+                  ],
+                ),
               ),
-            ),
-          ],
+              Container(
+                padding: WeatherConst.padTimeBadge,
+                decoration: BoxDecoration(
+                  color: widget.accentColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(WeatherConst.radiusTimeBadge),
+                ),
+                child: Text(
+                  widget.timeText,
+                  style: WeatherConst.tsTipTime.copyWith(
+                    color: widget.accentColor.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -146,8 +129,7 @@ class _AnimatedTipCardState extends State<AnimatedTipCard>
           animation: _pulseController,
           builder: (context, child) => Container(
             decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(WeatherConst.radiusTipCard),
+              borderRadius: BorderRadius.circular(WeatherConst.radiusTipCard),
               border: Border.all(
                 color: widget.accentColor.withValues(
                   alpha: 0.2 + _pulseController.value * 0.2,
@@ -184,6 +166,7 @@ class WeatherScreenState extends State<WeatherScreen> {
   Map<String, dynamic>? weatherData;
   Map<String, dynamic>? forecastData;
   Map<String, dynamic>? airQualityData;
+  Map<String, dynamic>? sunData;
   String cityName = 'Загрузка...';
   double? lat;
   double? lon;
@@ -200,6 +183,11 @@ class WeatherScreenState extends State<WeatherScreen> {
 
   bool _showStatusToast = false;
   bool _showCompactHeader = false;
+  
+  // ПЕРЕМЕННЫЕ ДЛЯ ОТСЛЕЖИВАНИЯ ИСТОЧНИКА ДАННЫХ
+  bool _isUsingFallback = false;
+  
+  Map<String, dynamic>? _cachedTip;
 
   @override
   void initState() {
@@ -218,40 +206,36 @@ class WeatherScreenState extends State<WeatherScreen> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-
     final scrollOffset = _scrollController.offset;
-
     if (scrollOffset > WeatherConst.scrollThreshold && !_showCompactHeader) {
       setState(() => _showCompactHeader = true);
-    } else if (scrollOffset <= WeatherConst.scrollThreshold &&
-        _showCompactHeader) {
+    } else if (scrollOffset <= WeatherConst.scrollThreshold && _showCompactHeader) {
       setState(() => _showCompactHeader = false);
+    }
+  }
+
+  void _updateTip() {
+    if (weatherData != null) {
+      _cachedTip = _tipsSystem.analyzeWeatherForTips(weatherData, forecastData);
     }
   }
 
   Future<void> _initializeApp() async {
     await _dataSystem.init();
-
     final priorityLocation = FavoritesStorage.getPriority();
-
     if (priorityLocation != null) {
       lat = priorityLocation.lat;
       lon = priorityLocation.lon;
       cityName = priorityLocation.name;
     }
-
     _loadAllFromStorage();
-
     if (priorityLocation != null) {
       cityName = priorityLocation.name;
     }
-
     if (weatherData == null) {
       _loadingManager.startLoading();
     }
-
     if (mounted) setState(() {});
-
     _updateWeatherInBackground();
   }
 
@@ -274,7 +258,6 @@ class WeatherScreenState extends State<WeatherScreen> {
         lon ??= 37.6173;
       }
     }
-
     await _fetchFreshData();
   }
 
@@ -283,46 +266,99 @@ class WeatherScreenState extends State<WeatherScreen> {
       weatherData: weatherData,
       forecastData: forecastData,
       airQualityData: airQualityData,
+      sunData: sunData,
       cityName: cityName,
     );
   }
 
+  // ========== ОБНОВЛЁННЫЙ МЕТОД С FALLBACK ==========
+  
   Future<void> _fetchFreshData() async {
-    try {
-      final data = await WeatherService.fetchAllWeatherData(lat!, lon!);
-      if (!mounted) return;
-      setState(() {
-        weatherData = data['weather'];
-        forecastData = data['forecast'];
-        airQualityData = data['airQuality'];
-        cityName = weatherData!['name'];
-        _showStatusToast = false;
-      });
-      _loadingManager.finishLoading(fromStorage: false);
-      _saveToStorage();
-    } catch (e) {
-      if (!mounted) return;
+  try {
+    final response = await WeatherService.fetchAllWeatherDataWithFallback(
+      lat!, 
+      lon!,
+    );
+    
+    if (!mounted) return;
+    
+    if (response.hasError) {
       if (weatherData != null) {
         setState(() => _showStatusToast = true);
-        if (e.toString().contains('SocketException') ||
-            e.toString().contains('HandshakeException') ||
-            e.toString().contains('HttpException')) {
-          _loadingManager.setOfflineMode();
-        } else {
-          _loadingManager.setApiError();
-        }
+        _loadingManager.setFallbackMode(); // Вместо setApiError
       } else {
-        if (e.toString().contains('SocketException') ||
-            e.toString().contains('HandshakeException') ||
-            e.toString().contains('HttpException')) {
-          _loadingManager.setError('Проверьте подключение к интернету');
-        } else {
-          _loadingManager.setError('Ошибка сервера');
-        }
+        _loadingManager.setError('Не удалось загрузить погоду');
         if (mounted) setState(() {});
       }
+      return;
+    }
+    
+    setState(() {
+      weatherData = response.weather;
+      forecastData = response.forecast;
+      airQualityData = response.airQuality;
+      sunData = response.sunData;
+      cityName = response.weather['name'] ?? 'Текущее местоположение';
+      _showStatusToast = false;
+      _updateTip();
+      _isUsingFallback = response.isFromOpenMeteo;
+    });
+    
+    // Если используется fallback - устанавливаем соответствующий режим
+    if (response.isFromOpenMeteo) {
+      _loadingManager.setFallbackMode();
+    } else {
+      _loadingManager.finishLoading(fromStorage: false);
+    }
+    
+    _saveToStorage();
+    
+    if (response.isFromOpenMeteo && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.cloud_queue, color: Colors.amber, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '⚠️ OpenWeatherMap не отвечает. Используем Open-Meteo',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.black87,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  } catch (e) {
+    if (!mounted) return;
+    if (weatherData != null) {
+      setState(() => _showStatusToast = true);
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('HandshakeException') ||
+          e.toString().contains('HttpException')) {
+        _loadingManager.setOfflineMode();
+      } else {
+        _loadingManager.setFallbackMode(); // Вместо setApiError
+      }
+    } else {
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('HandshakeException') ||
+          e.toString().contains('HttpException')) {
+        _loadingManager.setError('Проверьте подключение к интернету');
+      } else {
+        _loadingManager.setError('Ошибка сервера');
+      }
+      if (mounted) setState(() {});
     }
   }
+}
 
   void _loadAllFromStorage() {
     final allData = _dataSystem.getAllCachedData();
@@ -330,15 +366,15 @@ class WeatherScreenState extends State<WeatherScreen> {
       weatherData = allData['weather'];
       forecastData = allData['forecast'];
       airQualityData = allData['airQuality'];
+      sunData = allData['sunData'];
       cityName = allData['city'] ?? 'Загрузка...';
+      _updateTip();
       final timestamp = allData['timestamp'];
       if (timestamp != null && mounted) {
         try {
           final updateTime = DateTime.parse(timestamp.toString());
           _loadingManager.setLastUpdateTime(updateTime);
-        } catch (_) {
-          // Не удалось распарсить timestamp — некритично, пропускаем
-        }
+        } catch (_) {}
       }
       if (mounted) setState(() {});
     }
@@ -354,8 +390,7 @@ class WeatherScreenState extends State<WeatherScreen> {
     }
   }
 
-  Future<void> setLocation(
-      double newLat, double newLon, String newCityName) async {
+  Future<void> setLocation(double newLat, double newLon, String newCityName) async {
     setState(() {
       lat = newLat;
       lon = newLon;
@@ -408,9 +443,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                     duration: WeatherConst.durHeaderAnim,
                     curve: Curves.easeInOut,
                     child: AnimatedSlide(
-                      offset: _showCompactHeader
-                          ? Offset.zero
-                          : const Offset(0, -0.15),
+                      offset: _showCompactHeader ? Offset.zero : const Offset(0, -0.15),
                       duration: WeatherConst.durHeaderAnim,
                       curve: Curves.easeInOut,
                       child: CompactWeatherHeader(
@@ -418,9 +451,9 @@ class WeatherScreenState extends State<WeatherScreen> {
                         temp: weatherData!['main']['temp'].round(),
                         feelsLike: weatherData!['main']['feels_like'].round(),
                         iconCode: weatherData!['weather'][0]['icon'],
-                        description:
-                            weatherData!['weather'][0]['description'],
+                        description: weatherData!['weather'][0]['description'],
                         now: DateTime.now(),
+                        isUsingFallback: _isUsingFallback, // ПЕРЕДАЁМ ФЛАГ
                       ),
                     ),
                   ),
@@ -429,22 +462,18 @@ class WeatherScreenState extends State<WeatherScreen> {
             if (_loadingManager.isRefreshing)
               const RepaintBoundary(child: LoadingOverlay()),
             if (_showStatusToast)
-              RepaintBoundary(
-                child: StatusToast(
-                  isVisible: _showStatusToast,
-                  title: _loadingManager.isApiError
-                      ? 'Перебои API'
-                      : 'Проблемы с подключением:(',
-                  subtitle: _loadingManager.isApiError
-                      ? 'Подождите когда API даст ответ, временные перебои. Используем сохранённые данные'
-                      : 'Используем сохранённые данные',
-                  icon: _loadingManager.isApiError
-                      ? Icons.cloud_off
-                      : Icons.wifi_off,
-                  onDismiss: () =>
-                      setState(() => _showStatusToast = false),
-                ),
-              ),
+  RepaintBoundary(
+    child: StatusToast(
+      isVisible: _showStatusToast,
+      title: _loadingManager.isOffline ? 'Нет интернета' : 'Используем резервный источник',
+      subtitle: _loadingManager.isOffline
+          ? 'Используем сохранённые данные'
+          : 'OpenWeatherMap временно недоступен',
+      icon: _loadingManager.isOffline ? Icons.wifi_off : Icons.cloud_queue,
+      isFallback: _loadingManager.isUsingFallback,
+      onDismiss: () => setState(() => _showStatusToast = false),
+    ),
+  ),
           ],
         ),
       ),
@@ -452,23 +481,23 @@ class WeatherScreenState extends State<WeatherScreen> {
   }
 
   Widget _buildContent() {
-    if (_loadingManager.hasError && weatherData == null) {
-      return LoadingErrorWidget(
-        message: _loadingManager.errorMessage,
-        subtitle: null,
-        onRetry: () async {
-          _loadingManager.startLoading();
-          if (mounted) setState(() {});
-          await _initializeApp();
-        },
-        isApiError: _loadingManager.isApiError,
-      );
-    }
+  if (_loadingManager.hasError && weatherData == null) {
+    return LoadingErrorWidget(
+      message: _loadingManager.errorMessage,
+      subtitle: null,
+      onRetry: () async {
+        _loadingManager.startLoading();
+        if (mounted) setState(() {});
+        await _initializeApp();
+      },
+      isOffline: _loadingManager.isOffline, // Вместо isApiError
+    );
+  }
+
 
     if (weatherData == null && _loadingManager.isLoading) {
       return const Center(
-        child:
-            CircularProgressIndicator(color: WeatherConst.textPrimary),
+        child: CircularProgressIndicator(color: WeatherConst.textPrimary),
       );
     }
 
@@ -487,15 +516,11 @@ class WeatherScreenState extends State<WeatherScreen> {
                 children: [
                   _buildMainWeatherCard(),
                   const SizedBox(height: 12),
-                  _buildGlassCard(
-                      'Почасовой прогноз', _buildHourlyForecast()),
+                  Container(key: widget.tipsKey ?? _tipsKey, child: _buildTipCard()),
                   const SizedBox(height: 12),
-                  Container(
-                      key: widget.tipsKey ?? _tipsKey,
-                      child: _buildTipCard()),
+                  _buildGlassCard('Почасовой прогноз', _buildHourlyForecast()),
                   const SizedBox(height: 12),
-                  _buildGlassCard(
-                      '5-дневный прогноз', _buildDailyForecast()),
+                  _buildGlassCard('5-дневный прогноз', _buildDailyForecast()),
                   const SizedBox(height: 12),
                   _buildSunCard(),
                   const SizedBox(height: 12),
@@ -512,145 +537,148 @@ class WeatherScreenState extends State<WeatherScreen> {
     return const SizedBox.shrink();
   }
 
+  // ========== ОСНОВНАЯ КАРТОЧКА ПОГОДЫ С ИНДИКАТОРОМ ИСТОЧНИКА ==========
+  
   Widget _buildMainWeatherCard() {
-    if (weatherData == null) return const SizedBox.shrink();
+  if (weatherData == null) return const SizedBox.shrink();
 
-    DateTime now = DateTime.now();
-    double humidity = weatherData!['main']['humidity'].toDouble();
-    double windSpeed = weatherData!['wind']['speed'].toDouble();
-    double pressure = WeatherUtils.convertPressureToMmhg(
-        weatherData!['main']['pressure'].toDouble());
-    int temp = weatherData!['main']['temp'].round();
-    int feelsLike = weatherData!['main']['feels_like'].round();
-    String description = weatherData!['weather'][0]['description'];
-    String iconCode = weatherData!['weather'][0]['icon'];
-    String capitalizedDescription =
-        description[0].toUpperCase() + description.substring(1);
+  DateTime now = DateTime.now();
+  double humidity = weatherData!['main']['humidity'].toDouble();
+  double windSpeed = weatherData!['wind']['speed'].toDouble();
+  double pressure = WeatherUtils.convertPressureToMmhg(weatherData!['main']['pressure'].toDouble());
+  int temp = weatherData!['main']['temp'].round();
+  int feelsLike = weatherData!['main']['feels_like'].round();
+  String description = weatherData!['weather'][0]['description'];
+  String iconCode = weatherData!['weather'][0]['icon'];
+  String capitalizedDescription = description[0].toUpperCase() + description.substring(1);
 
-    return FadeInWrapper(
-      child: Container(
-        decoration: BoxDecoration(
-          color: WeatherConst.bgCard,
-          borderRadius: BorderRadius.circular(WeatherConst.radiusCard),
-          border: Border.all(
-              color: WeatherConst.textPrimary.withValues(alpha: 0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(WeatherConst.radiusCard),
-          child: Padding(
-            padding: WeatherConst.padCardContent,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(cityName,
-                              style: WeatherConst.tsCityName,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 4),
-                          Text(WeatherUtils.formatDate(now),
-                              style: WeatherConst.tsDateLabel),
-                          const SizedBox(height: 6),
-                          UpdateTimeIndicator(
-                            updateTime: _loadingManager.lastUpdateTime,
-                            isFromCache: _loadingManager.isUsingStorage,
-                          ),
-                        ],
-                      ),
+  return FadeInWrapper(
+    child: Container(
+      decoration: BoxDecoration(
+        color: WeatherConst.bgCard,
+        borderRadius: BorderRadius.circular(WeatherConst.radiusCard),
+        border: Border.all(color: WeatherConst.textPrimary.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(WeatherConst.radiusCard),
+        child: Padding(
+          padding: WeatherConst.padCardContent,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                cityName, 
+                                style: WeatherConst.tsCityName, 
+                                maxLines: 2, 
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // ===== УБРАЛИ СИНИЙ "КЕШ" =====
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(WeatherUtils.formatDate(now), style: WeatherConst.tsDateLabel),
+                        const SizedBox(height: 6),
+                        UpdateTimeIndicator(
+                          updateTime: _loadingManager.lastUpdateTime,
+                          isFromCache: _loadingManager.isUsingStorage,
+                        ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: WeatherConst.bgCardLighter,
-                        borderRadius: BorderRadius.circular(
-                            WeatherConst.radiusWeatherIconBg),
-                      ),
-                      child: Icon(
-                        WeatherUtils.getWeatherIcon(iconCode),
-                        color: WeatherConst.textPrimary,
-                        size: WeatherConst.mainWeatherIconSize,
-                      ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: WeatherConst.bgCardLighter,
+                      borderRadius: BorderRadius.circular(WeatherConst.radiusWeatherIconBg),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Center(
-                    child:
-                        Text('$temp°', style: WeatherConst.tsHeroTemp)),
-                const SizedBox(height: 8),
-                Center(
-                    child: Text(capitalizedDescription,
-                        style: WeatherConst.tsDescription)),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                        child: _buildDetailCard(
-                            value: '${humidity.round()}%',
-                            label: 'Влажность',
-                            color: WeatherConst.textPrimary)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: _buildDetailCard(
-                            value: '${windSpeed.round()} км/ч',
-                            label:
-                                'Ветер ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}',
-                            color: WeatherConst.textPrimary)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                        child: _buildDetailCard(
-                            value: '${pressure.round()} мм',
-                            label: 'Давление',
-                            color: WeatherConst.textPrimary)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: _buildDetailCard(
-                            value: '$feelsLike°',
-                            label: 'Ощущается',
-                            color: WeatherConst.textPrimary)),
-                  ],
-                ),
-              ],
-            ),
+                    child: Icon(
+                      WeatherUtils.getWeatherIcon(iconCode),
+                      color: WeatherConst.textPrimary,
+                      size: WeatherConst.mainWeatherIconSize,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Center(child: Text('$temp°', style: WeatherConst.tsHeroTemp)),
+              const SizedBox(height: 8),
+              Center(child: Text(capitalizedDescription, style: WeatherConst.tsDescription)),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDetailCard(
+                      value: '${humidity.round()}%',
+                      label: 'Влажность',
+                      color: WeatherConst.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildDetailCard(
+                      value: '${windSpeed.round()} км/ч',
+                      label: 'Ветер ${WeatherUtils.getWindDirection(weatherData!['wind']['deg'])}',
+                      color: WeatherConst.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDetailCard(
+                      value: '${pressure.round()} мм',
+                      label: 'Давление',
+                      color: WeatherConst.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildDetailCard(
+                      value: '$feelsLike°',
+                      label: 'Ощущается',
+                      color: WeatherConst.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildDetailCard(
-      {required String value,
-      required String label,
-      required Color color}) {
+  Widget _buildDetailCard({required String value, required String label, required Color color}) {
     return Container(
       padding: WeatherConst.padDetailCard,
       decoration: BoxDecoration(
         color: WeatherConst.bgDetailCard,
-        borderRadius:
-            BorderRadius.circular(WeatherConst.radiusDetailCard),
-        border: Border.all(
-            color: WeatherConst.textPrimary.withValues(alpha: 0.08)),
+        borderRadius: BorderRadius.circular(WeatherConst.radiusDetailCard),
+        border: Border.all(color: WeatherConst.textPrimary.withValues(alpha: 0.08)),
       ),
       child: Column(
         children: [
-          Text(value,
-              style: WeatherConst.tsDetailValue.copyWith(color: color)),
+          Text(value, style: WeatherConst.tsDetailValue.copyWith(color: color)),
           const SizedBox(height: 2),
           Text(label, style: WeatherConst.tsDetailLabel),
         ],
@@ -663,21 +691,18 @@ class WeatherScreenState extends State<WeatherScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: WeatherConst.bgCard,
-          borderRadius:
-              BorderRadius.circular(WeatherConst.radiusGlassCard),
+          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
           border: Border.all(color: WeatherConst.bgCardLighter),
         ),
         child: ClipRRect(
-          borderRadius:
-              BorderRadius.circular(WeatherConst.radiusGlassCard),
+          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
           child: Padding(
             padding: WeatherConst.padGlassCardContent,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  const Icon(Icons.access_time,
-                      color: WeatherConst.textSecondary, size: 16),
+                  const Icon(Icons.access_time, color: WeatherConst.textSecondary, size: 16),
                   const SizedBox(width: 8),
                   Text(title, style: WeatherConst.tsGlassCardTitle),
                 ]),
@@ -703,28 +728,30 @@ class WeatherScreenState extends State<WeatherScreen> {
       String iconCode = item['weather'][0]['icon'];
       String shortDesc = WeatherUtils.getShortWeatherDescription(iconCode);
       hourlyWidgets.add(FadeInWrapper(
-          duration: Duration(milliseconds: 300 + (i * 50)),
-          offsetY: 20,
-          child: _forecastItem(
-              hour, shortDesc, iconCode, '${temp.round()}°')));
+        duration: Duration(milliseconds: 300 + (i * 50)),
+        offsetY: 20,
+        child: _forecastItem(hour, shortDesc, iconCode, '${temp.round()}°'),
+      ));
     }
     return Column(children: hourlyWidgets);
   }
 
   Widget _buildTipCard() {
-    if (weatherData == null) return const SizedBox.shrink();
-    final tip = _tipsSystem.analyzeWeatherForTips(weatherData, forecastData);
-    if (tip != null && tip.isNotEmpty) {
-      final isImportant = tip['type'] == 'rain' || tip['type'] == 'snow';
-      return AnimatedTipCard(
-          title: tip['title'],
-          message: tip['message'],
-          timeText: tip['time'],
-          accentColor: tip['color'],
-          icon: tip['icon'],
-          isImportant: isImportant);
+    if (_cachedTip == null || _cachedTip!.isEmpty) {
+      return const SizedBox.shrink();
     }
-    return const SizedBox.shrink();
+    
+    final tip = _cachedTip!;
+    final isImportant = tip['type'] == 'rain' || tip['type'] == 'snow';
+    
+    return AnimatedTipCard(
+      title: tip['title'],
+      message: tip['message'],
+      timeText: tip['time'],
+      accentColor: tip['color'],
+      icon: tip['icon'],
+      isImportant: isImportant,
+    );
   }
 
   Widget _buildDailyForecast() {
@@ -749,9 +776,7 @@ class WeatherScreenState extends State<WeatherScreen> {
         FadeInWrapper(
           duration: Duration(milliseconds: 300 + (index * 50)),
           offsetY: 20,
-          child: _forecastItem(
-              weekday, shortDesc, iconCode, '${temp.round()}°',
-              isDaily: true),
+          child: _forecastItem(weekday, shortDesc, iconCode, '${temp.round()}°', isDaily: true),
         ),
       );
       index++;
@@ -759,32 +784,23 @@ class WeatherScreenState extends State<WeatherScreen> {
     return Column(children: dailyWidgets);
   }
 
-  Widget _forecastItem(String time, String desc, String iconCode,
-      String temp,
-      {bool isDaily = false}) {
+  Widget _forecastItem(String time, String desc, String iconCode, String temp, {bool isDaily = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: WeatherConst.padForecastItem,
       decoration: BoxDecoration(
         color: WeatherConst.bgForecastItem,
-        borderRadius:
-            BorderRadius.circular(WeatherConst.radiusForecastItem),
-        border: Border.all(
-            color: WeatherConst.textPrimary.withValues(alpha: 0.06)),
+        borderRadius: BorderRadius.circular(WeatherConst.radiusForecastItem),
+        border: Border.all(color: WeatherConst.textPrimary.withValues(alpha: 0.06)),
       ),
       child: Row(
         children: [
           SizedBox(
             width: isDaily ? 115 : 55,
-            child: Text(time,
-                style: WeatherConst.tsForecastTime
-                    .copyWith(fontSize: isDaily ? 12 : 13),
-                overflow: TextOverflow.ellipsis),
+            child: Text(time, style: WeatherConst.tsForecastTime.copyWith(fontSize: isDaily ? 12 : 13), overflow: TextOverflow.ellipsis),
           ),
           Expanded(child: Text(desc, style: WeatherConst.tsForecastDesc)),
-          Icon(WeatherUtils.getWeatherIcon(iconCode),
-              color: WeatherConst.textPrimary,
-              size: WeatherConst.forecastIconSize),
+          Icon(WeatherUtils.getWeatherIcon(iconCode), color: WeatherConst.textPrimary, size: WeatherConst.forecastIconSize),
           const SizedBox(width: 12),
           Text(temp, style: WeatherConst.tsForecastTemp),
         ],
@@ -792,52 +808,53 @@ class WeatherScreenState extends State<WeatherScreen> {
     );
   }
 
+  // ========== КАРТОЧКА СОЛНЦА ==========
+  
   Widget _buildSunCard() {
-    if (weatherData == null) return const SizedBox.shrink();
-    DateTime sunrise = DateTime.fromMillisecondsSinceEpoch(
-        weatherData!['sys']['sunrise'] * 1000);
-    DateTime sunset = DateTime.fromMillisecondsSinceEpoch(
-        weatherData!['sys']['sunset'] * 1000);
+    if (sunData == null) return const SizedBox.shrink();
+    
+    final sunrise = sunData!['sunrise'] as DateTime?;
+    final sunset = sunData!['sunset'] as DateTime?;
+    
+    if (sunrise == null || sunset == null) return const SizedBox.shrink();
+    
     return FadeInWrapper(
       child: Container(
         decoration: BoxDecoration(
           color: WeatherConst.bgCard,
-          borderRadius:
-              BorderRadius.circular(WeatherConst.radiusGlassCard),
+          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
           border: Border.all(color: WeatherConst.bgCardLighter),
         ),
         child: ClipRRect(
-          borderRadius:
-              BorderRadius.circular(WeatherConst.radiusGlassCard),
+          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
           child: Padding(
             padding: WeatherConst.padGlassCardContent,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  const Icon(Icons.wb_sunny,
-                      color: WeatherConst.accentSunYellow, size: 16),
+                  const Icon(Icons.wb_sunny, color: WeatherConst.textPrimary, size: 16),
                   const SizedBox(width: 8),
-                  const Text('Солнце',
-                      style: WeatherConst.tsGlassCardTitle),
+                  const Text('Солнце', style: WeatherConst.tsGlassCardTitle),
                 ]),
                 const SizedBox(height: 12),
                 Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildSunItem(
-                        '${sunrise.hour.toString().padLeft(2, '0')}:${sunrise.minute.toString().padLeft(2, '0')}',
-                        'Рассвет',
-                        WeatherConst.accentSunYellow,
-                        WeatherConst.accentSunOrange,
-                      ),
-                      _buildSunItem(
-                        '${sunset.hour.toString().padLeft(2, '0')}:${sunset.minute.toString().padLeft(2, '0')}',
-                        'Закат',
-                        WeatherConst.accentSunsetRed,
-                        WeatherConst.accentSunOrange,
-                      ),
-                    ]),
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildSunItem(
+                      '${sunrise.hour.toString().padLeft(2, '0')}:${sunrise.minute.toString().padLeft(2, '0')}',
+                      'Рассвет',
+                      WeatherConst.accentSunYellow,
+                      WeatherConst.accentSunOrange,
+                    ),
+                    _buildSunItem(
+                      '${sunset.hour.toString().padLeft(2, '0')}:${sunset.minute.toString().padLeft(2, '0')}',
+                      'Закат',
+                      WeatherConst.accentSunsetRed,
+                      WeatherConst.accentSunOrange,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -846,14 +863,12 @@ class WeatherScreenState extends State<WeatherScreen> {
     );
   }
 
-  Widget _buildSunItem(
-      String time, String label, Color color1, Color color2) {
+  Widget _buildSunItem(String time, String label, Color color1, Color color2) {
     return Container(
       padding: WeatherConst.padSunItem,
       decoration: BoxDecoration(
         color: WeatherConst.bgSunItem,
-        borderRadius:
-            BorderRadius.circular(WeatherConst.radiusSunItem),
+        borderRadius: BorderRadius.circular(WeatherConst.radiusSunItem),
       ),
       child: Row(
         children: [
@@ -862,15 +877,13 @@ class WeatherScreenState extends State<WeatherScreen> {
             height: WeatherConst.sunDotSize,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [color1, color2]),
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color1, color2],
+              ),
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(
-                    color: color1.withValues(alpha: 0.5),
-                    blurRadius: 12,
-                    spreadRadius: 2)
+                BoxShadow(color: color1.withValues(alpha: 0.5), blurRadius: 12, spreadRadius: 2)
               ],
             ),
           ),
@@ -888,52 +901,37 @@ class WeatherScreenState extends State<WeatherScreen> {
     if (airQualityData == null) return const SizedBox.shrink();
     int aqi = 2;
     String aqiText = 'Нет данных';
-    Color aqiColor = Colors.grey;
-    if (airQualityData!['list'] != null &&
-        airQualityData!['list'].isNotEmpty) {
+    if (airQualityData!['list'] != null && airQualityData!['list'].isNotEmpty) {
       aqi = airQualityData!['list'][0]['main']['aqi'];
       aqiText = WeatherUtils.getAirQualityText(aqi);
-      aqiColor = WeatherUtils.getAirQualityColor(aqi);
     }
     return FadeInWrapper(
       child: Container(
         decoration: BoxDecoration(
           color: WeatherConst.bgCard,
-          borderRadius:
-              BorderRadius.circular(WeatherConst.radiusGlassCard),
+          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
           border: Border.all(color: WeatherConst.bgCardLighter),
         ),
         child: ClipRRect(
-          borderRadius:
-              BorderRadius.circular(WeatherConst.radiusGlassCard),
+          borderRadius: BorderRadius.circular(WeatherConst.radiusGlassCard),
           child: Padding(
             padding: WeatherConst.padGlassCardContent,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  const Icon(Icons.air,
-                      color: WeatherConst.accentAir, size: 16),
+                  const Icon(Icons.air, color: WeatherConst.textPrimary, size: 16),
                   const SizedBox(width: 8),
-                  const Text('Качество воздуха',
-                      style: WeatherConst.tsGlassCardTitle),
+                  const Text('Качество воздуха', style: WeatherConst.tsGlassCardTitle),
                 ]),
                 const SizedBox(height: 12),
                 Center(
-                    child: Column(children: [
-                  Text(aqiText,
-                      style: WeatherConst.tsAirQualityValue.copyWith(
-                          color: aqiColor,
-                          shadows: [
-                            Shadow(
-                                blurRadius: 6,
-                                color:
-                                    aqiColor.withValues(alpha: 0.4))
-                          ])),
-                  const SizedBox(height: 4),
-                  const Text('Качество воздуха',
-                      style: WeatherConst.tsAirQualityLabel),
-                ])),
+                  child: Column(children: [
+                    Text(aqiText, style: WeatherConst.tsAirQualityValue.copyWith(color: WeatherConst.textPrimary)),
+                    const SizedBox(height: 4),
+                    const Text('Качество воздуха', style: WeatherConst.tsAirQualityLabel),
+                  ]),
+                ),
               ],
             ),
           ),
@@ -961,8 +959,7 @@ class FadeInWrapper extends StatefulWidget {
   State<FadeInWrapper> createState() => _FadeInWrapperState();
 }
 
-class _FadeInWrapperState extends State<FadeInWrapper>
-    with SingleTickerProviderStateMixin {
+class _FadeInWrapperState extends State<FadeInWrapper> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -970,14 +967,13 @@ class _FadeInWrapperState extends State<FadeInWrapper>
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(duration: widget.duration, vsync: this);
+    _controller = AnimationController(duration: widget.duration, vsync: this);
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _slideAnimation = Tween<Offset>(
-            begin: Offset(0, widget.offsetY / 100), end: Offset.zero)
-        .animate(
-            CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _slideAnimation = Tween<Offset>(begin: Offset(0, widget.offsetY / 100), end: Offset.zero).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
     _controller.forward();
   }
 

@@ -32,9 +32,12 @@ class DataSystem {
       final file = await _getFile();
       if (await file.exists()) {
         final contents = await file.readAsString();
-        _cachedData = json.decode(contents);
-        if (_cachedData != null && _cachedData!.containsKey('timestamp')) {
-          _lastUpdateTime = DateTime.parse(_cachedData!['timestamp']);
+        final rawData = json.decode(contents);
+        if (rawData != null) {
+          _cachedData = _deserializeCache(rawData);
+          if (_cachedData != null && _cachedData!.containsKey('timestamp')) {
+            _lastUpdateTime = DateTime.tryParse(_cachedData!['timestamp'].toString());
+          }
         }
       }
     } catch (e) {
@@ -49,11 +52,44 @@ class DataSystem {
     return DateTime.now().difference(_lastUpdateTime!).inMinutes < cacheDurationMinutes;
   }
   
+  // ========== СЕРИАЛИЗАЦИЯ АСТРОНОМИИ ==========
+  
+  /// Преобразует DateTime в строки для JSON
+  Map<String, dynamic>? _serializeSunData(Map<String, dynamic>? sun) {
+    if (sun == null) return null;
+    return {
+      'sunrise': sun['sunrise']?.toString(),
+      'sunset': sun['sunset']?.toString(),
+    };
+  }
+  
+  /// Преобразует строки обратно в DateTime
+  Map<String, dynamic>? _deserializeSunData(Map<String, dynamic>? sun) {
+    if (sun == null) return null;
+    return {
+      'sunrise': sun['sunrise'] != null ? DateTime.tryParse(sun['sunrise'].toString()) : null,
+      'sunset': sun['sunset'] != null ? DateTime.tryParse(sun['sunset'].toString()) : null,
+    };
+  }
+  
+  /// Десериализует весь кэш (включая астрономию)
+  Map<String, dynamic> _deserializeCache(Map<String, dynamic> raw) {
+    return {
+      'weather': raw['weather'],
+      'forecast': raw['forecast'],
+      'airQuality': raw['airQuality'],
+      'sunData': _deserializeSunData(raw['sunData']),
+      'city': raw['city'],
+      'timestamp': raw['timestamp'],
+    };
+  }
+  
   // Сохранение в файл
   Future<void> saveToCache({
     required Map<String, dynamic>? weatherData,
     required Map<String, dynamic>? forecastData,
     required Map<String, dynamic>? airQualityData,
+    Map<String, dynamic>? sunData, // ПЕРЕИМЕНОВАНО
     required String cityName,
   }) async {
     try {
@@ -61,6 +97,7 @@ class DataSystem {
         'weather': weatherData,
         'forecast': forecastData,
         'airQuality': airQualityData,
+        'sunData': _serializeSunData(sunData), // СОЛНЦЕ
         'city': cityName,
         'timestamp': DateTime.now().toIso8601String(),
       };
@@ -68,7 +105,7 @@ class DataSystem {
       final file = await _getFile();
       await file.writeAsString(json.encode(cacheData));
       
-      _cachedData = cacheData;
+      _cachedData = _deserializeCache(cacheData); // ДЕСЕРИАЛИЗУЕМ ОБРАТНО
       _lastUpdateTime = DateTime.now();
     } catch (e) {
       // Игнорируем ошибку сохранения
@@ -84,9 +121,9 @@ class DataSystem {
   }
 
   // Получение ВСЕХ кэшированных данных (даже устаревших) — для холодного старта
-Map<String, dynamic>? getAllCachedData() {
-  return _cachedData;
-}
+  Map<String, dynamic>? getAllCachedData() {
+    return _cachedData;
+  }
   
   // Очистка хранилища
   Future<void> clearCache() async {
@@ -120,6 +157,14 @@ Map<String, dynamic>? getAllCachedData() {
   Map<String, dynamic>? getAirQualityFromCache() {
     if (_isCacheValid() && _cachedData != null && _cachedData!.containsKey('airQuality')) {
       return _cachedData!['airQuality'];
+    }
+    return null;
+  }
+  
+  // ДОБАВЛЕНО: получение астрономии из кэша
+  Map<String, dynamic>? getSunDataFromCache() {
+    if (_isCacheValid() && _cachedData != null && _cachedData!.containsKey('sunData')) {
+      return _cachedData!['sunData'];
     }
     return null;
   }

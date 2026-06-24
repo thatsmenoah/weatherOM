@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 
-
 // ========== СИСТЕМА ЗАГРУЗКИ ==========
 
 /// Состояния загрузки данных
 enum LoadingState {
-  initial,      // Начальное состояние
-  loading,      // Загрузка (поверх данных из хранилища)
-  loaded,       // Загружено
-  refreshing,   // Обновление
-  error,        // Ошибка
-  offline,      // Оффлайн режим
-  apiError,     // Ошибка API (перебои)
+  initial,        // Начальное состояние
+  loading,        // Загрузка (поверх данных из хранилища)
+  loaded,         // Загружено
+  refreshing,     // Обновление
+  error,          // Ошибка (нет интернета, сервер недоступен)
+  offline,        // Оффлайн режим (работаем с кешем)
+  usingFallback,  // Используется резервный источник (OM) - НЕ ОШИБКА!
 }
 
 /// Менеджер состояний загрузки
@@ -19,7 +18,7 @@ class LoadingStateManager extends ChangeNotifier {
   LoadingState _state = LoadingState.initial;
   String _errorMessage = '';
   bool _isUsingStorage = false;
-  DateTime? _lastUpdateTime;  // Время последнего обновления данных
+  DateTime? _lastUpdateTime;
   
   LoadingState get state => _state;
   String get errorMessage => _errorMessage;
@@ -28,9 +27,9 @@ class LoadingStateManager extends ChangeNotifier {
   
   bool get isLoading => _state == LoadingState.loading;
   bool get isRefreshing => _state == LoadingState.refreshing;
-  bool get hasError => _state == LoadingState.error || _state == LoadingState.apiError;
+  bool get hasError => _state == LoadingState.error || _state == LoadingState.offline;
   bool get isOffline => _state == LoadingState.offline;
-  bool get isApiError => _state == LoadingState.apiError;
+  bool get isUsingFallback => _state == LoadingState.usingFallback; // НОВОЕ
   
   void startLoading() {
     _state = LoadingState.loading;
@@ -47,20 +46,22 @@ class LoadingStateManager extends ChangeNotifier {
   void finishLoading({bool fromStorage = false}) {
     _state = LoadingState.loaded;
     _isUsingStorage = fromStorage;
-    _lastUpdateTime = DateTime.now();  // Запоминаем время обновления
+    _lastUpdateTime = DateTime.now();
+    notifyListeners();
+  }
+  
+  // НОВЫЙ МЕТОД - когда используем Open-Meteo (это не ошибка!)
+  void setFallbackMode() {
+    _state = LoadingState.usingFallback;
+    _isUsingStorage = false; // Данные свежие, просто из другого источника
+    _errorMessage = '';
+    _lastUpdateTime = DateTime.now();
     notifyListeners();
   }
   
   void setError(String message) {
     _state = LoadingState.error;
     _errorMessage = message;
-    notifyListeners();
-  }
-  
-  void setApiError() {
-    _state = LoadingState.apiError;
-    _errorMessage = 'Перебои API';
-    _isUsingStorage = true;
     notifyListeners();
   }
   
@@ -71,9 +72,9 @@ class LoadingStateManager extends ChangeNotifier {
   }
   
   void setLastUpdateTime(DateTime time) {
-  _lastUpdateTime = time;
-  notifyListeners();
-}
+    _lastUpdateTime = time;
+    notifyListeners();
+  }
   
   void reset() {
     _state = LoadingState.initial;
@@ -85,10 +86,10 @@ class LoadingStateManager extends ChangeNotifier {
 
 // ========== ВИДЖЕТЫ ЗАГРУЗКИ ==========
 
-/// Индикатор времени последнего обновления (серый, минималистичный)
+/// Индикатор времени последнего обновления
 class UpdateTimeIndicator extends StatelessWidget {
   final DateTime? updateTime;
-  final bool isFromCache;  // из кэша или из API
+  final bool isFromCache;
   
   const UpdateTimeIndicator({
     super.key,
@@ -116,11 +117,9 @@ class UpdateTimeIndicator extends StatelessWidget {
     final IconData displayIcon;
     
     if (isFromCache) {
-      // Данные из кэша - показываем статус
       displayText = _getCacheStatus();
       displayIcon = Icons.storage;
     } else {
-      // Данные из API - показываем время
       displayText = _formatTime();
       displayIcon = Icons.update;
     }
@@ -141,7 +140,7 @@ class UpdateTimeIndicator extends StatelessWidget {
           Icon(
             displayIcon,
             size: 11,
-            color: Colors.white.withValues(alpha: 0.5),  // Всегда серый
+            color: Colors.white.withValues(alpha: 0.5),
           ),
           const SizedBox(width: 6),
           Text(
@@ -149,7 +148,7 @@ class UpdateTimeIndicator extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w400,
-              color: Colors.white.withValues(alpha: 0.6),  // Всегда серый
+              color: Colors.white.withValues(alpha: 0.6),
             ),
           ),
         ],
@@ -175,14 +174,14 @@ class LoadingErrorWidget extends StatelessWidget {
   final String message;
   final String? subtitle;
   final VoidCallback onRetry;
-  final bool isApiError;
+  final bool isOffline;
   
   const LoadingErrorWidget({
     super.key,
     required this.message,
     this.subtitle,
     required this.onRetry,
-    this.isApiError = false,
+    this.isOffline = false,
   });
   
   @override
@@ -194,7 +193,7 @@ class LoadingErrorWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isApiError ? Icons.cloud_off : Icons.wifi_off, 
+              isOffline ? Icons.wifi_off : Icons.error_outline, 
               color: const Color(0xFFdc2626), 
               size: 64
             ),
@@ -234,13 +233,14 @@ class LoadingErrorWidget extends StatelessWidget {
   }
 }
 
-/// Плашка статуса (нет интернета / перебои API)
+/// Плашка статуса (нет интернета / оффлайн)
 class StatusToast extends StatefulWidget {
   final bool isVisible;
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback? onDismiss;
+  final bool isFallback; // НОВОЕ: если true - жёлтый цвет, если false - красный
   
   const StatusToast({
     super.key,
@@ -249,6 +249,7 @@ class StatusToast extends StatefulWidget {
     this.subtitle = 'Используем сохранённые данные',
     this.icon = Icons.wifi_off,
     this.onDismiss,
+    this.isFallback = false,
   });
   
   @override
@@ -321,6 +322,12 @@ class _StatusToastState extends State<StatusToast>
   
   @override
   Widget build(BuildContext context) {
+    // Выбираем цвета в зависимости от типа уведомления
+    final isFallback = widget.isFallback;
+    final bgColor = isFallback 
+        ? const Color(0xFFF59E0B) // Жёлтый для fallback
+        : const Color(0xFFdc2626); // Красный для ошибок
+    
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -341,14 +348,7 @@ class _StatusToastState extends State<StatusToast>
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFFdc2626).withValues(alpha: 0.95),
-                          const Color(0xFFb91c1c).withValues(alpha: 0.95),
-                        ],
-                      ),
+                      color: bgColor.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(

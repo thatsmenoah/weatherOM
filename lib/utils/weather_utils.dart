@@ -18,25 +18,18 @@ class WeatherUtils {
   // Текст качества воздуха (по AQI)
   static String getAirQualityText(int aqi) {
     switch(aqi) {
-      case 1: return 'Отлично';
-      case 2: return 'Хорошо';
-      case 3: return 'Умеренно';
-      case 4: return 'Плохо';
-      case 5: return 'Очень плохо';
-      default: return 'Нет данных';
+      case 1: return 'Отличное';
+      case 2: return 'Хорошое';
+      case 3: return 'Умеренное';
+      case 4: return 'Плохое';
+      case 5: return 'Очень плохое';
+      default: return 'Нет данных на';
     }
   }
 
   // Цвет качества воздуха (по AQI)
   static Color getAirQualityColor(int aqi) {
-    switch(aqi) {
-      case 1: return const Color(0xFF69a3dd);
-      case 2: return const Color(0xFF4ecdc4);
-      case 3: return const Color(0xFFffe66d);
-      case 4: return const Color(0xFFff9e6d);
-      case 5: return const Color(0xFFff6b6b);
-      default: return Colors.grey;
-    }
+    return Colors.white;
   }
 
   // Короткое описание погоды
@@ -273,10 +266,6 @@ class WeatherUtils {
   
   // Цвет качества воздуха по оценке
   static Color getAirQualityColorByScore(double score) {
-    if (score >= 8.5) return const Color(0xFF10b981);
-    if (score >= 7.0) return const Color(0xFF3b82f6);
-    if (score >= 5.0) return const Color(0xFFf59e0b);
-    if (score >= 3.0) return const Color(0xFFf97316);
-    return const Color(0xFFef4444);
+    return Colors.white;
   }
 }

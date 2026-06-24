@@ -279,7 +279,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                 children: [
                   _buildMenuItem(
                     icon: Icons.blur_on_rounded,
-                    label: 'Условия',
+                    label: 'Другое',
                     onTap: () => _onMenuItemTap(() {
                       setState(() => _currentIndex = 2);
                     }),
