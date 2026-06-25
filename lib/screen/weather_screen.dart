@@ -126,7 +126,7 @@ class _AnimatedTipCardState extends State<AnimatedTipCard>
     if (widget.isImportant && _pulseController != null) {
       return RepaintBoundary(
         child: AnimatedBuilder(
-          animation: _pulseController!,
+          animation: _pulseController!, 
           builder: (context, child) => Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(WeatherConst.radiusTipCard),
@@ -294,15 +294,14 @@ class WeatherScreenState extends State<WeatherScreen> {
     }
     
     setState(() {
-      weatherData = response.weather;
-      forecastData = response.forecast;
-      airQualityData = response.airQuality;
-      sunData = response.sunData;
-      cityName = response.weather['name'] ?? 'Текущее местоположение';
-      _showStatusToast = false;
-      _updateTip();
-      _isUsingFallback = response.isFromOpenMeteo;
-    });
+  weatherData = response.weather;
+  forecastData = response.forecast;
+  airQualityData = response.airQuality;
+  sunData = response.sunData;
+  cityName = response.weather['name'] ?? 'Текущее местоположение';
+  _showStatusToast = false;
+  _isUsingFallback = response.isFromOpenMeteo;
+});
     
     // Если используется fallback - устанавливаем соответствующий режим
     if (response.isFromOpenMeteo) {
@@ -313,29 +312,7 @@ class WeatherScreenState extends State<WeatherScreen> {
     
     _saveToStorage();
     
-    if (response.isFromOpenMeteo && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.cloud_queue, color: Colors.amber, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '⚠️ OpenWeatherMap не отвечает. Используем Open-Meteo',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.black87,
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
+    
   } catch (e) {
     if (!mounted) return;
     if (weatherData != null) {
@@ -403,26 +380,28 @@ class WeatherScreenState extends State<WeatherScreen> {
   }
 
   Future<void> _refreshWeather() async {
-    _loadingManager.startRefreshing();
-    if (mounted) setState(() {});
-    try {
-      final position = await WeatherService.getCurrentPosition();
-      if (!mounted) return;
-      lat = position.latitude;
-      lon = position.longitude;
-    } catch (e) {
-      if (!mounted) return;
-      final priorityLocation = FavoritesStorage.getPriority();
-      if (priorityLocation != null) {
-        lat = priorityLocation.lat;
-        lon = priorityLocation.lon;
-      } else {
-        lat ??= 55.7558;
-        lon ??= 37.6173;
-      }
+  _loadingManager.startRefreshing();
+  if (mounted) setState(() {});
+  try {
+    final position = await WeatherService.getCurrentPosition();
+    if (!mounted) return;
+    lat = position.latitude;
+    lon = position.longitude;
+  } catch (e) {
+    if (!mounted) return;
+    final priorityLocation = FavoritesStorage.getPriority();
+    if (priorityLocation != null) {
+      lat = priorityLocation.lat;
+      lon = priorityLocation.lon;
+    } else {
+      lat ??= 55.7558;
+      lon ??= 37.6173;
     }
-    await _fetchFreshData();
   }
+  await _fetchFreshData();
+  _updateTip(); 
+  if (mounted) setState(() {});
+}
 
   @override
   Widget build(BuildContext context) {
@@ -464,15 +443,10 @@ class WeatherScreenState extends State<WeatherScreen> {
             if (_showStatusToast)
   RepaintBoundary(
     child: StatusToast(
-      isVisible: _showStatusToast,
-      title: _loadingManager.isOffline ? 'Нет интернета' : 'Используем резервный источник',
-      subtitle: _loadingManager.isOffline
-          ? 'Используем сохранённые данные'
-          : 'OpenWeatherMap временно недоступен',
-      icon: _loadingManager.isOffline ? Icons.wifi_off : Icons.cloud_queue,
-      isFallback: _loadingManager.isUsingFallback,
-      onDismiss: () => setState(() => _showStatusToast = false),
-    ),
+  isVisible: _showStatusToast,
+  title: _loadingManager.isOffline ? 'Нет сети' : 'Перебои АПИ',
+  onDismiss: () => setState(() => _showStatusToast = false),
+),
   ),
           ],
         ),

@@ -89,7 +89,7 @@ class SettingsConst {
   // ──────────────────────────────
   static const String telegramUsername = 'wptf80x';
   static const String copyrightText = '© 2026 Weather App';
-  static const String appVersion = 'Версия 3.0.0 BETA!';
+  static const String appVersion = 'Версия 0.8.5b';
 
   // ──────────────────────────────
   // ПЕРЕИСПОЛЬЗУЕМЫЕ БОРДЕРЫ

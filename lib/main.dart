@@ -7,13 +7,12 @@ import 'screen/settings_screen.dart';
 import 'screen/favorites_screen.dart';
 import 'screen/charts_sheet.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Предзагрузка избранного в память — чтобы экран открывался мгновенно
   await FavoritesStorage.preload();
-  
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -42,7 +41,8 @@ class WeatherApp extends StatelessWidget {
   }
 }
 
-final GlobalKey<WeatherScreenState> weatherScreenKey = GlobalKey<WeatherScreenState>();
+final GlobalKey<WeatherScreenState> weatherScreenKey =
+    GlobalKey<WeatherScreenState>();
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -62,10 +62,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   late Animation<Offset> _menuSlideAnimation;
 
   final LayerLink _layerLink = LayerLink();
-
   late final List<Widget> _screens;
 
-  @override
+   @override
   void initState() {
     super.initState();
 
@@ -79,19 +78,31 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _navAnimation = CurvedAnimation(parent: _navAnimationController, curve: Curves.easeOutCubic);
+    _navAnimation = CurvedAnimation(
+      parent: _navAnimationController,
+      curve: Curves.easeOutCubic,
+    );
     _navAnimationController.forward();
 
     _menuAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _menuScaleAnimation = CurvedAnimation(parent: _menuAnimationController, curve: Curves.easeOutCubic);
-    _menuFadeAnimation = CurvedAnimation(parent: _menuAnimationController, curve: Curves.easeOutQuart);
+    _menuScaleAnimation = CurvedAnimation(
+      parent: _menuAnimationController,
+      curve: Curves.easeOutCubic,
+    );
+    _menuFadeAnimation = CurvedAnimation(
+      parent: _menuAnimationController,
+      curve: Curves.easeOutQuart,
+    );
     _menuSlideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _menuAnimationController, curve: Curves.easeOutCubic));
+    ).animate(CurvedAnimation(
+      parent: _menuAnimationController,
+      curve: Curves.easeOutCubic,
+    ));
   }
 
   @override
@@ -143,22 +154,31 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     });
   }
 
+  // ============ НАВИГАЦИЯ С ОТЛОЖЕННЫМ СТАРТОМ ============
+
   void _navigateToSettings() {
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => SettingsScreen(
-          onBackPressed: () => Navigator.pop(context),
-        ),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const SettingsScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
-          const curve = Curves.easeOutCubic;
-          final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          return SlideTransition(position: animation.drive(tween), child: child);
+
+          // Задержка ~5% от длительности — страница успевает отрисоваться
+          final curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: const Interval(0.05, 1.0, curve: Curves.easeOutCubic),
+          );
+
+          return SlideTransition(
+            position: Tween<Offset>(begin: begin, end: end).animate(curvedAnimation),
+            child: child,
+          );
         },
-        transitionDuration: const Duration(milliseconds: 200),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 370),
+        reverseTransitionDuration: const Duration(milliseconds: 350),
       ),
     );
   }
@@ -169,21 +189,31 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => FavoritesScreen(
           onLocationSelected: (location) {
-            weatherScreenKey.currentState?.setLocation(location.lat, location.lon, location.name);
+            weatherScreenKey.currentState
+                ?.setLocation(location.lat, location.lon, location.name);
           },
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
-          const curve = Curves.easeOutCubic;
-          final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          return SlideTransition(position: animation.drive(tween), child: child);
+
+          final curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: const Interval(0.05, 1.0, curve: Curves.easeOutCubic),
+          );
+
+          return SlideTransition(
+            position: Tween<Offset>(begin: begin, end: end).animate(curvedAnimation),
+            child: child,
+          );
         },
-        transitionDuration: const Duration(milliseconds: 200),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 370),
+        reverseTransitionDuration: const Duration(milliseconds: 350),
       ),
     );
   }
+
+  // ======================================================
 
   void _showChartsSheet() {
     final weatherState = weatherScreenKey.currentState;
@@ -201,13 +231,25 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  @override
+   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF191919),
       body: Stack(
         children: [
           _screens[_currentIndex],
+
+          // ======== OFFSTAGE ПРЕДЗАГРУЗКА (прогрев Impeller) ========
+          const Offstage(
+            offstage: true,
+            child: SettingsScreen(),
+          ),
+          const Offstage(
+            offstage: true,
+            child: FavoritesScreen(onLocationSelected: null),
+          ),
+          // ==========================================================
+
           _buildBottomNav(),
           if (_isMenuOpen) _buildMenuOverlay(),
         ],
@@ -254,7 +296,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       width: 180,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: 25, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 25,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
@@ -266,11 +314,18 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Colors.white.withValues(alpha: 0.18), Colors.white.withValues(alpha: 0.05), Colors.black.withValues(alpha: 0.3)],
+                colors: [
+                  Colors.white.withValues(alpha: 0.18),
+                  Colors.white.withValues(alpha: 0.05),
+                  Colors.black.withValues(alpha: 0.3),
+                ],
                 stops: const [0.0, 0.5, 1.0],
               ),
               color: const Color(0xFF1A1A1A).withValues(alpha: 0.7),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 0.8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 0.8,
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -278,7 +333,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildMenuItem(
-                    icon: Icons.blur_on_rounded,
+                    icon: Icons.explore,
                     label: 'Другое',
                     onTap: () => _onMenuItemTap(() {
                       setState(() => _currentIndex = 2);
@@ -308,11 +363,18 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   Widget _buildDivider() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Divider(height: 1, color: Colors.white.withValues(alpha: 0.1)),
+      child: Divider(
+        height: 1,
+        color: Colors.white.withValues(alpha: 0.1),
+      ),
     );
   }
 
-  Widget _buildMenuItem({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -327,7 +389,15 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             children: [
               Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 20),
               const SizedBox(width: 14),
-              Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: 0.3)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.3,
+                ),
+              ),
             ],
           ),
         ),
@@ -335,11 +405,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== НИЖНЯЯ ПАНЕЛЬ — LIQUID GLASS ТЁМНЫЙ ====================
+  // ==================== НИЖНЯЯ ПАНЕЛЬ ====================
   Widget _buildBottomNav() {
     return Positioned(
       bottom: MediaQuery.of(context).padding.bottom + 12,
-      left: 0, right: 0,
+      left: 0,
+      right: 0,
       child: Center(
         child: FadeTransition(
           opacity: _navAnimation,
@@ -347,28 +418,21 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                // Круглая кнопка — СТРЕЛКА НАЗАД
                 _buildCircleButton(
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+                  child: const Icon(Icons.arrow_back_rounded,
+                      color: Colors.white, size: 28),
                   onTap: () => _onNavItemTap(0),
                 ),
-                
                 const SizedBox(width: 8),
-                
-                // Таблетка поиска
-                Expanded(
-                  child: _buildSearchPill(),
-                ),
-                
+                Expanded(child: _buildSearchPill()),
                 const SizedBox(width: 8),
-                
-                // Круглая кнопка — бургер
                 CompositedTransformTarget(
                   link: _layerLink,
                   child: _buildCircleButton(
-                    child: _isMenuOpen 
-                      ? const Icon(Icons.close_rounded, color: Colors.white, size: 28)
-                      : _buildBurgerIcon(),
+                    child: _isMenuOpen
+                        ? const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 28)
+                        : _buildBurgerIcon(),
                     onTap: _toggleMenu,
                   ),
                 ),
@@ -380,7 +444,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Иконка бургера — полоски стопочкой, центрированы
   Widget _buildBurgerIcon() {
     return SizedBox(
       width: 24,
@@ -423,7 +486,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Круглая кнопка — LIQUID GLASS ТЁМНЫЙ
   Widget _buildCircleButton({
     required Widget child,
     required VoidCallback onTap,
@@ -468,7 +530,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Таблетка поиска — LIQUID GLASS ТЁМНЫЙ
   Widget _buildSearchPill() {
     return GestureDetector(
       onTap: () => _onNavItemTap(1),
@@ -507,11 +568,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.search_rounded, 
-              color: Colors.white70, 
-              size: 30,
-            ),
+            const Icon(Icons.search_rounded, color: Colors.white70, size: 30),
             const SizedBox(width: 12),
             Text(
               'Поиск',

@@ -228,7 +228,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 20), 
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

@@ -237,21 +237,15 @@ class LoadingErrorWidget extends StatelessWidget {
 class StatusToast extends StatefulWidget {
   final bool isVisible;
   final String title;
-  final String subtitle;
-  final IconData icon;
   final VoidCallback? onDismiss;
-  final bool isFallback; // НОВОЕ: если true - жёлтый цвет, если false - красный
-  
+
   const StatusToast({
     super.key,
     required this.isVisible,
-    this.title = 'Нет интернета',
-    this.subtitle = 'Используем сохранённые данные',
-    this.icon = Icons.wifi_off,
+    this.title = 'Нет сети',
     this.onDismiss,
-    this.isFallback = false,
   });
-  
+
   @override
   State<StatusToast> createState() => _StatusToastState();
 }
@@ -261,15 +255,18 @@ class _StatusToastState extends State<StatusToast>
   late AnimationController _controller;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
-  
+
+  double _dragDistance = 0;
+  bool _isDragging = false;
+
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 350),
       vsync: this,
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0.0, -1.0),
       end: Offset.zero,
@@ -277,7 +274,7 @@ class _StatusToastState extends State<StatusToast>
       parent: _controller,
       curve: Curves.easeOutCubic,
     ));
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -285,49 +282,67 @@ class _StatusToastState extends State<StatusToast>
       parent: _controller,
       curve: Curves.easeOut,
     ));
-    
+
     if (widget.isVisible) {
       _controller.forward();
+      Future.delayed(const Duration(seconds: 4), () {
+        if (mounted && widget.isVisible && !_isDragging) {
+          _dismiss();
+        }
+      });
     }
   }
-  
+
   @override
   void didUpdateWidget(StatusToast oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isVisible && !oldWidget.isVisible) {
       _controller.forward();
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted && widget.isVisible) {
-          _hide();
+      Future.delayed(const Duration(seconds: 4), () {
+        if (mounted && widget.isVisible && !_isDragging) {
+          _dismiss();
         }
       });
     } else if (!widget.isVisible && oldWidget.isVisible) {
-      _hide();
+      _dismiss();
     }
   }
-  
-  void _hide() {
+
+  void _dismiss() {
     _controller.reverse().then((_) {
       if (mounted && widget.onDismiss != null) {
         widget.onDismiss!();
       }
     });
   }
-  
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    setState(() {
+      _isDragging = true;
+      _dragDistance += details.delta.distance * (details.delta.dx > 0 ? 1 : -1);
+      _dragDistance = _dragDistance.clamp(-200.0, 200.0);
+    });
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    _isDragging = false;
+    if (_dragDistance.abs() > 80 || details.velocity.pixelsPerSecond.dy.abs() > 300) {
+      _dismiss();
+    } else {
+      setState(() {
+        _dragDistance = 0;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    // Выбираем цвета в зависимости от типа уведомления
-    final isFallback = widget.isFallback;
-    final bgColor = isFallback 
-        ? const Color(0xFFF59E0B) // Жёлтый для fallback
-        : const Color(0xFFdc2626); // Красный для ошибок
-    
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -337,87 +352,30 @@ class _StatusToastState extends State<StatusToast>
             position: _slideAnimation,
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.only(top: 50, right: 12),
-                child: Align(
-                  alignment: Alignment.topRight,
+              child: GestureDetector(
+                onPanUpdate: _onPanUpdate,
+                onPanEnd: _onPanEnd,
+                child: Transform.translate(
+                  offset: Offset(0, _dragDistance),
                   child: Container(
-                    constraints: const BoxConstraints(maxWidth: 300),
+                    margin: const EdgeInsets.only(top: 4, left: 40, right: 40),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 10,
+                      vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: bgColor.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        width: 1,
-                      ),
+                      color: const Color(0xFFdc2626).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            widget.icon,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                widget.title,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.subtitle,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _hide,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      widget.title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        letterSpacing: 0.2,
+                      ),
                     ),
                   ),
                 ),
