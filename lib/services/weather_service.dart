@@ -572,6 +572,78 @@ class WeatherService {
     }
   }
   
+  // ========== НОВЫЙ МЕТОД: УФ-ИНДЕКС, ТОЧКА РОСЫ, ВИДИМОСТЬ, ВЕРОЯТНОСТЬ ОСАДКОВ, СОЛНЕЧНАЯ РАДИАЦИЯ ==========
+
+static Future<Map<String, dynamic>> fetchExtraMetricsFromOpenMeteo(double lat, double lon) async {
+  try {
+    debugPrint('🌤️ Запрос доп. метрик к Open-Meteo...');
+
+    final response = await http.get(
+      Uri.parse(
+        'https://api.open-meteo.com/v1/forecast?'
+        'latitude=$lat&longitude=$lon'
+        '&hourly=dew_point_2m,visibility,uv_index,precipitation_probability,shortwave_radiation'
+        '&timezone=auto'
+        '&forecast_hours=1',
+      ),
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw Exception('Open-Meteo вернул статус ${response.statusCode}');
+    }
+
+    final data = json.decode(response.body);
+    debugPrint('✅ Open-Meteo доп. метрики получены');
+
+    final hourly = data['hourly'] ?? {};
+    final times = hourly['time'] as List?;
+    final dewPoints = hourly['dew_point_2m'] as List?;
+    final visibilities = hourly['visibility'] as List?;
+    final uvIndices = hourly['uv_index'] as List?;
+    final precipProbs = hourly['precipitation_probability'] as List?;
+    final shortwaveRads = hourly['shortwave_radiation'] as List?;
+
+    int currentIndex = 0;
+    if (times != null && times.isNotEmpty) {
+      final now = DateTime.now();
+      for (int i = 0; i < times.length; i++) {
+        final time = DateTime.parse(times[i]);
+        if (time.hour <= now.hour || i == times.length - 1) {
+          currentIndex = i;
+        }
+        if (time.hour > now.hour) break;
+      }
+    }
+
+    return {
+      'dewPoint': dewPoints != null && currentIndex < dewPoints.length
+          ? _parseToDouble(dewPoints[currentIndex])
+          : null,
+      'visibility': visibilities != null && currentIndex < visibilities.length
+          ? _parseToDouble(visibilities[currentIndex])
+          : null,
+      'uvIndex': uvIndices != null && currentIndex < uvIndices.length
+          ? _parseToDouble(uvIndices[currentIndex])
+          : null,
+      'precipitationProbability': precipProbs != null && currentIndex < precipProbs.length
+          ? _parseToNum(precipProbs[currentIndex])
+          : null,
+      'shortwaveRadiation': shortwaveRads != null && currentIndex < shortwaveRads.length
+          ? _parseToDouble(shortwaveRads[currentIndex])
+          : null,
+    };
+  } catch (e) {
+    debugPrint('❌ Ошибка получения доп. метрик: $e');
+    return {
+      'dewPoint': null,
+      'visibility': null,
+      'uvIndex': null,
+      'precipitationProbability': null,
+      'shortwaveRadiation': null,
+    };
+  }
+}
+  
   // ========== СТАРЫЙ МЕТОД ДЛЯ СОВМЕСТИМОСТИ ==========
   
   @Deprecated('Используйте fetchAllWeatherDataWithFallback')
@@ -686,7 +758,7 @@ class WeatherService {
       return item;
     }
   }
-} // <-- ЭТО ЗАКРЫВАЮЩАЯ СКОБКА КЛАССА WeatherService
+}
 
 // ========== РАСШИРЕНИЯ ==========
 

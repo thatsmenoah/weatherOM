@@ -1,8 +1,6 @@
 import 'dart:ui' as ui;
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:path_provider/path_provider.dart';
 import '../core/storage_info_system.dart';
 import '../core/data_system.dart';
 import '../constants/settings_const.dart';
@@ -23,8 +21,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final StorageInfoSystem _storageSystem = StorageInfoSystem();
 
   int _dataSize = 0;
-  int _totalStorage = 0;
-  int _freeStorage = 0;
   bool _isLoading = true;
   bool _isClearing = false;
 
@@ -45,43 +41,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final dataSize = await _storageSystem.getCacheSize();
 
-      int totalStorage = 0;
-      int freeStorage = 0;
-
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-
-        if (Platform.isAndroid || Platform.isIOS) {
-          final result = await Process.run('df', ['-k', directory.path]);
-          if (result.exitCode == 0) {
-            final lines = result.stdout.toString().split('\n');
-            if (lines.length > 1) {
-              final parts = lines[1].trim().split(RegExp(r'\s+'));
-              if (parts.length >= 4) {
-                totalStorage = int.tryParse(parts[1]) ?? 0;
-                freeStorage = int.tryParse(parts[3]) ?? 0;
-                totalStorage *= 1024;
-                freeStorage *= 1024;
-              }
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('⚠️ Не удалось получить информацию о хранилище: $e');
-      }
-
       setState(() {
         _dataSize = dataSize;
-        _totalStorage = totalStorage > 0 ? totalStorage : 1024 * 1024 * 1024;
-        _freeStorage = freeStorage > 0 ? freeStorage : 512 * 1024 * 1024;
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('❌ Ошибка в _loadDataSize: $e');
       setState(() {
         _dataSize = 0;
-        _totalStorage = 1024 * 1024 * 1024;
-        _freeStorage = 512 * 1024 * 1024;
         _isLoading = false;
       });
     }
@@ -119,6 +86,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  void _showChangelog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (context) => const ChangelogSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,6 +119,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _buildReportSection(),
                         const SizedBox(height: 24),
                         _buildAboutSection(),
+                        const SizedBox(height: 24),
+                        _buildChangelogButton(),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -180,11 +160,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildDataSection() {
-    final dataSizeText = _isLoading ? 'Загрузка...' : _storageSystem.formatSize(_dataSize);
-    final totalStorageText = _isLoading ? '...' : _storageSystem.formatSize(_totalStorage);
-    final freeStorageText = _isLoading ? '...' : _storageSystem.formatSize(_freeStorage);
-    final progress = _isClearing ? 0.0 : (_totalStorage > 0 ? (_dataSize / _totalStorage).clamp(0.0, 1.0) : 0.0);
-
     return FadeInWrapper(
       duration: SettingsConst.durSectionFade,
       offsetY: 10,
@@ -226,66 +201,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 20), 
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Занято приложением', style: SettingsConst.tsStorageLabel),
-                          Row(children: [Text(dataSizeText, style: SettingsConst.tsStorageValue)]),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        height: SettingsConst.progressBarHeight,
-                        decoration: BoxDecoration(
-                          color: SettingsConst.bgButton,
-                          borderRadius: BorderRadius.circular(SettingsConst.radiusProgressBar),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(SettingsConst.radiusProgressBar),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.transparent,
-                            valueColor: const AlwaysStoppedAnimation<Color>(SettingsConst.accentBlue),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: SettingsConst.padInfoBox,
-                        decoration: BoxDecoration(
-                          color: SettingsConst.bgInfoBox,
-                          borderRadius: BorderRadius.circular(SettingsConst.radiusInfoBox),
-                          border: SettingsConst.subtleBorder,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildStorageInfoItem(icon: Icons.phone_android_rounded, label: 'Всего', value: totalStorageText),
-                            ),
-                            Container(
-                              width: SettingsConst.dividerWidth,
-                              height: SettingsConst.dividerHeight,
-                              color: Colors.white.withValues(alpha: 0.08),
-                            ),
-                            Expanded(
-                              child: _buildStorageInfoItem(
-                                icon: Icons.check_circle_outline_rounded,
-                                label: 'Свободно',
-                                value: freeStorageText,
-                                valueColor: SettingsConst.accentGreen,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Данные автоматически обновляются каждые 30 минут', style: SettingsConst.tsFooterHint),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -330,23 +245,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildStorageInfoItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    Color valueColor = SettingsConst.accentBlue,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.5), size: SettingsConst.infoIconSize),
-        const SizedBox(height: 4),
-        Text(label, style: SettingsConst.tsInfoItemLabel),
-        const SizedBox(height: 2),
-        Text(value, style: SettingsConst.tsInfoItemValue.copyWith(color: valueColor)),
-      ],
     );
   }
 
@@ -460,6 +358,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildChangelogButton() {
+    return FadeInWrapper(
+      duration: SettingsConst.durSectionFade3,
+      offsetY: 10,
+      child: _buildMenuButton(
+        icon: Icons.auto_awesome_rounded,
+        label: 'Что нового?',
+        onTap: _showChangelog,
+      ),
+    );
+  }
+
   Widget _buildMenuButton({required IconData icon, required String label, required VoidCallback onTap}) {
     return Material(
       color: Colors.transparent,
@@ -483,6 +393,112 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ========== CHANGELOG SHEET ==========
+
+class ChangelogSheet extends StatelessWidget {
+  const ChangelogSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: const BoxDecoration(
+        color: Color(0xFF080808),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(
+          top: BorderSide(color: Color(0xFF2A2A2A), width: 1),
+          left: BorderSide(color: Color(0xFF2A2A2A), width: 1),
+          right: BorderSide(color: Color(0xFF2A2A2A), width: 1),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A3A3A),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'Что нового?',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  SettingsConst.changelogCurrentVersion,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFa0a0a0),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _buildChangelogContent(),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChangelogContent() {
+    final lines = SettingsConst.changelogText.split('\n');
+    final List<TextSpan> spans = [];
+
+    for (final line in lines) {
+      if (line.startsWith('0.8.') && line.length < 10) {
+        spans.add(TextSpan(
+          text: '$line\n',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            height: 1.6,
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(
+          text: '$line\n',
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFFa0a0a0),
+            height: 1.6,
+          ),
+        ));
+      }
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
     );
   }
 }
