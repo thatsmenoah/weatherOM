@@ -221,7 +221,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  // ========== СЕКЦИЯ ДОПОЛНИТЕЛЬНО ==========
+  //  СЕКЦИЯ ДОПОЛНИТЕЛЬНО 
   
   Widget _buildExtraMetricsSection() {
     final uvIndex = extraMetrics?['uvIndex'];
@@ -321,7 +321,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  // ========== СТРОКА ПОКАЗАТЕЛЯ ==========
+  //  СТРОКА ПОКАЗАТЕЛЯ 
   
   Widget _buildMetricRow({
     required IconData icon,
@@ -394,7 +394,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  // ========== ОПИСАНИЯ ==========
+  //  ОПИСАНИЯ 
   
   String _getUvDescription(dynamic uv) {
     if (uv == null) return 'Нет данных';
@@ -444,7 +444,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     return 'Ясно';
   }
 
-  // ========== СЕКЦИЯ КАЧЕСТВА ВОЗДУХА ==========
+  //  СЕКЦИЯ КАЧЕСТВА ВОЗДУХА 
   
   Widget _buildAirQualitySection() {
     final airScore = _getAirQualityScore();
@@ -586,7 +586,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }
 }
 
-// ========== УБИРАЕМ СВЕЧЕНИЕ ПРИ ПРОКРУТКЕ ==========
+//  УБИРАЕМ СВЕЧЕНИЕ ПРИ ПРОКРУТКЕ 
 
 class NoGlowBehavior extends ScrollBehavior {
   @override

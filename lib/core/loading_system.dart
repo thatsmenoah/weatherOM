@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// ========== СИСТЕМА ЗАГРУЗКИ ==========
+//  СИСТЕМА ЗАГРУЗКИ 
 
 /// Состояния загрузки данных
 enum LoadingState {
@@ -84,7 +84,7 @@ class LoadingStateManager extends ChangeNotifier {
   }
 }
 
-// ========== ВИДЖЕТЫ ЗАГРУЗКИ ==========
+//  ВИДЖЕТЫ ЗАГРУЗКИ 
 
 /// Индикатор времени последнего обновления
 class UpdateTimeIndicator extends StatelessWidget {

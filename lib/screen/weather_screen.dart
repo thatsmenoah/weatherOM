@@ -8,7 +8,7 @@ import '../screen/favorites_screen.dart';
 import '../screen/header.dart';
 import '../constants/weather_const.dart';
 
-// ========== АНИМИРОВАННАЯ КАРТОЧКА СОВЕТА ==========
+//  АНИМИРОВАННАЯ КАРТОЧКА СОВЕТА 
 
 class AnimatedTipCard extends StatefulWidget {
   final String title;
@@ -151,7 +151,7 @@ class _AnimatedTipCardState extends State<AnimatedTipCard>
   }
 }
 
-// ========== ОСНОВНОЙ ЭКРАН ПОГОДЫ ==========
+//  ОСНОВНОЙ ЭКРАН ПОГОДЫ 
 
 class WeatherScreen extends StatefulWidget {
   final GlobalKey? tipsKey;
@@ -271,7 +271,7 @@ class WeatherScreenState extends State<WeatherScreen> {
     );
   }
 
-  // ========== ОБНОВЛЁННЫЙ МЕТОД С FALLBACK ==========
+  //  ОБНОВЛЁННЫЙ МЕТОД С FALLBACK 
   
   Future<void> _fetchFreshData() async {
   try {
@@ -511,7 +511,7 @@ class WeatherScreenState extends State<WeatherScreen> {
     return const SizedBox.shrink();
   }
 
-  // ========== ОСНОВНАЯ КАРТОЧКА ПОГОДЫ С ИНДИКАТОРОМ ИСТОЧНИКА ==========
+  //  ОСНОВНАЯ КАРТОЧКА ПОГОДЫ С ИНДИКАТОРОМ ИСТОЧНИКА 
   
   Widget _buildMainWeatherCard() {
   if (weatherData == null) return const SizedBox.shrink();
@@ -794,7 +794,7 @@ class WeatherScreenState extends State<WeatherScreen> {
     );
   }
 
-  // ========== КАРТОЧКА СОЛНЦА ==========
+  //  КАРТОЧКА СОЛНЦА 
   
   Widget _buildSunCard() {
   if (sunData == null) return const SizedBox.shrink();
@@ -927,7 +927,7 @@ class WeatherScreenState extends State<WeatherScreen> {
   }
 }
 
-// ========== FADE IN WRAPPER ==========
+//  FADE IN WRAPPER 
 
 class FadeInWrapper extends StatefulWidget {
   final Widget child;

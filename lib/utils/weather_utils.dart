@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/weather_const.dart';
 
 class WeatherUtils {
-  // ========== СУЩЕСТВУЮЩИЕ МЕТОДЫ ==========
+  //  СУЩЕСТВУЮЩИЕ МЕТОДЫ 
 
   // Форматирование даты
   static String formatDate(DateTime date) {
@@ -90,7 +90,7 @@ class WeatherUtils {
     return pressureHpa * 0.750062;
   }
 
-  // ========== НОВЫЕ UI-МЕТОДЫ ==========
+  //  НОВЫЕ UI-МЕТОДЫ 
 
   // Капитализация строки
   static String capitalize(String text) {
@@ -151,7 +151,7 @@ class WeatherUtils {
     return '${time.hour}:00';
   }
 
-  // ========== МЕТОДЫ ДЛЯ АКТИВНОСТЕЙ ==========
+  //  МЕТОДЫ ДЛЯ АКТИВНОСТЕЙ 
 
   // Расчет оценки для активности
   static double calculateActivityScore(

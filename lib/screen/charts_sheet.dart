@@ -260,7 +260,7 @@ Widget build(BuildContext context) {
   );
 }
 
-  // ========== 1. БЫСТРАЯ СВОДКА ==========
+  //  1. БЫСТРАЯ СВОДКА 
   Widget _buildQuickSummary() {
     return Row(
       children: [
@@ -293,7 +293,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ========== 2. ГРАФИК ТЕМПЕРАТУРЫ ==========
+  //  2. ГРАФИК ТЕМПЕРАТУРЫ 
   Widget _buildTemperatureGraph() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -350,7 +350,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ========== 3. МИНИ-ГРАФИКИ (Ветер + Давление) ==========
+  //  3. МИНИ-ГРАФИКИ (Ветер + Давление) 
   Widget _buildMiniCharts() {
     return Row(
       children: [
@@ -435,7 +435,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ========== 4. ФУТЕР ==========
+  //  4. ФУТЕР 
   Widget _buildFooter() {
     String tempTrend;
     if (_tempPoints.length >= 2) {
@@ -484,7 +484,7 @@ Widget build(BuildContext context) {
   }
 }
 
-// ========== PAINTER ДЛЯ ГРАФИКА ТЕМПЕРАТУРЫ ==========
+//  PAINTER ДЛЯ ГРАФИКА ТЕМПЕРАТУРЫ 
 class _TemperatureGraphPainter extends CustomPainter {
   final List<double> points;
   final double minTemp;
@@ -661,7 +661,7 @@ class _TemperatureGraphPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-// ========== PAINTER ДЛЯ МИНИ-ГРАФИКОВ ==========
+//  PAINTER ДЛЯ МИНИ-ГРАФИКОВ 
 class _MiniLinePainter extends CustomPainter {
   final List<double> points;
   final Color color;

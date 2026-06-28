@@ -52,7 +52,7 @@ class DataSystem {
     return DateTime.now().difference(_lastUpdateTime!).inMinutes < cacheDurationMinutes;
   }
   
-  // ========== СЕРИАЛИЗАЦИЯ АСТРОНОМИИ ==========
+  //  СЕРИАЛИЗАЦИЯ АСТРОНОМИИ 
   
   /// Преобразует DateTime в строки для JSON
   Map<String, dynamic>? _serializeSunData(Map<String, dynamic>? sun) {

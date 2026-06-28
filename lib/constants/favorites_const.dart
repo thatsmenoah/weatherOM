@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 class FavoritesConst {
   FavoritesConst._();
 
-  // ──────────────────────────────
+   
   // ЦВЕТА
-  // ──────────────────────────────
+   
   static const Color bgScreen = Color(0xFF080808);
   static const Color bgCard = Color(0x14FFFFFF); // 0.08
   static const Color bgCardSecondary = Color(0x0FFFFFFF); // 0.06
@@ -30,9 +30,9 @@ class FavoritesConst {
   static const Color accentRed = Color(0xFFEF4444);
   static const Color accentGold = Color(0xFFFFD700);
 
-  // ──────────────────────────────
+   
   // РАДИУСЫ
-  // ──────────────────────────────
+   
   static const double radiusCard = 16.0;
   static const double radiusIconBox = 14.0;
   static const double radiusSearchBar = 16.0;
@@ -41,9 +41,9 @@ class FavoritesConst {
   static const double radiusPriorityBadge = 6.0;
   static const double radiusActionButton = 12.0;
 
-  // ──────────────────────────────
+   
   // ОТСТУПЫ
-  // ──────────────────────────────
+   
   static const EdgeInsets padHeader = EdgeInsets.fromLTRB(8, 8, 16, 4);
   static const EdgeInsets padSearchBar = EdgeInsets.fromLTRB(16, 8, 16, 12);
   static const EdgeInsets padMainList = EdgeInsets.symmetric(horizontal: 16);
@@ -51,9 +51,9 @@ class FavoritesConst {
   static const EdgeInsets padBadge = EdgeInsets.symmetric(horizontal: 8, vertical: 4);
   static const EdgeInsets padPriorityBadge = EdgeInsets.symmetric(horizontal: 6, vertical: 2);
 
-  // ──────────────────────────────
+   
   // ТИПОГРАФИКА
-  // ──────────────────────────────
+   
   static const TextStyle tsHeaderTitle = TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: textPrimary);
   static const TextStyle tsSectionHeader = TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary, letterSpacing: 1.2);
   static const TextStyle tsLocationName = TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary);
@@ -66,9 +66,9 @@ class FavoritesConst {
   static const TextStyle tsSearchInput = TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: textPrimary);
   static const TextStyle tsSearchHint = TextStyle(fontSize: 15, color: textSearchHint);
 
-  // ──────────────────────────────
+   
   // РАЗМЕРЫ
-  // ──────────────────────────────
+   
   static const double headerButtonSize = 44.0;
   static const double headerIconSize = 20.0;
   static const double headerCloseIconSize = 22.0;
@@ -81,22 +81,22 @@ class FavoritesConst {
   static const double emptyIconSize = 56.0;
   static const double emptySearchIconSize = 48.0;
 
-  // ──────────────────────────────
+  
   // BLUR
-  // ──────────────────────────────
+   
   static const double blurCard = 15.0;
   static const double blurSearchBar = 10.0;
 
-  // ──────────────────────────────
+   
   // АНИМАЦИИ
-  // ──────────────────────────────
+   
   static const Duration durCardFade = Duration(milliseconds: 300);
   static const Duration durCardFadeCurrent = Duration(milliseconds: 400);
 }
 
-// ──────────────────────────────
+ 
 // ПЕРЕИСПОЛЬЗУЕМЫЕ БОРДЕРЫ
-// ──────────────────────────────
+ 
 Border favoritesDefaultBorder() => Border.all(color: Colors.white.withValues(alpha: 0.08));
 Border favoritesDefaultBorder01() => Border.all(color: Colors.white.withValues(alpha: 0.1));
 Border favoritesFocusedBorder() => Border.all(color: Colors.white.withValues(alpha: 0.2));

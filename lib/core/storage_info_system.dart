@@ -11,7 +11,7 @@ class StorageInfoSystem {
   static const int _mbDivider = 1024 * 1024;
   static const int _kbDivider = 1024;
 
-  // ========== ПОЛУЧЕНИЕ РАЗМЕРА КЕША ==========
+  //  ПОЛУЧЕНИЕ РАЗМЕРА КЕША 
 
   /// Получить размер кеша в байтах
   Future<int> getCacheSize() async {
@@ -75,7 +75,7 @@ class StorageInfoSystem {
     return size;
   }
 
-  // ========== ФОРМАТИРОВАНИЕ ==========
+  //  ФОРМАТИРОВАНИЕ 
 
   /// Форматировать размер в читаемый вид
   String formatSize(int bytes) {
@@ -90,7 +90,7 @@ class StorageInfoSystem {
     }
   }
 
-  // ========== ОЧИСТКА ==========
+  //  ОЧИСТКА 
 
   /// Очистить временные файлы
   Future<void> clearTempFiles() async {

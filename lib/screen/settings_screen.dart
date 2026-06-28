@@ -5,7 +5,7 @@ import '../core/storage_info_system.dart';
 import '../core/data_system.dart';
 import '../constants/settings_const.dart';
 
-// ========== ЭКРАН НАСТРОЕК ==========
+//  ЭКРАН НАСТРОЕК 
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -397,7 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ========== CHANGELOG SHEET ==========
+//  CHANGELOG SHEET 
 
 class ChangelogSheet extends StatelessWidget {
   const ChangelogSheet({super.key});
@@ -503,7 +503,7 @@ class ChangelogSheet extends StatelessWidget {
   }
 }
 
-// ========== ВСПОМОГАТЕЛЬНЫЙ ВИДЖЕТ ==========
+//  ВСПОМОГАТЕЛЬНЫЙ ВИДЖЕТ 
 
 class FadeInWrapper extends StatelessWidget {
   final Widget child;

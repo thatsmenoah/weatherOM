@@ -6,7 +6,7 @@ import 'dart:convert';
 import '../services/weather_service.dart';
 import '../constants/favorites_const.dart';
 
-// ========== МОДЕЛЬ ЛОКАЦИИ ==========
+//  МОДЕЛЬ ЛОКАЦИИ 
 
 class FavoriteLocation {
   final String name;
@@ -42,7 +42,7 @@ class FavoriteLocation {
       );
 }
 
-// ========== СЕРВИС СОХРАНЕНИЯ (с кэшем в памяти) ==========
+//  СЕРВИС СОХРАНЕНИЯ (с кэшем в памяти) 
 
 class FavoritesStorage {
   static const String _favoritesKey = 'favorites_locations';
@@ -114,7 +114,7 @@ class FavoritesStorage {
   }
 }
 
-// ========== ЭКРАН ИЗБРАННОГО ==========
+//  ЭКРАН ИЗБРАННОГО 
 
 class FavoritesScreen extends StatefulWidget {
   final Function(FavoriteLocation location)? onLocationSelected;
@@ -778,7 +778,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 }
 
-// ========== ВСПОМОГАТЕЛЬНЫЙ ВИДЖЕТ ==========
+//  ВСПОМОГАТЕЛЬНЫЙ ВИДЖЕТ 
 
 class FadeInWrapper extends StatelessWidget {
   final Widget child;

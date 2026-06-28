@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 class WeatherConst {
   WeatherConst._();
 
-  // ──────────────────────────────
+   
   // ЦВЕТА
-  // ──────────────────────────────
+   
   static const Color bgScreen = Color(0xFF080808);
   static const Color bgCard = Color(0x14FFFFFF); // 0.08 opacity white
   static const Color bgCardLighter = Color(0x1AFFFFFF); // 0.10 opacity
@@ -22,9 +22,9 @@ class WeatherConst {
   static const Color accentSunsetRed = Color(0xFFFF6B6B);
   static const Color accentAir = Color(0xFF4ECDC4);
 
-  // ──────────────────────────────
+   
   // РАДИУСЫ
-  // ──────────────────────────────
+   
   static const double radiusCard = 24.0;
   static const double radiusGlassCard = 16.0;
   static const double radiusForecastItem = 10.0;
@@ -35,9 +35,9 @@ class WeatherConst {
   static const double radiusTipIcon = 10.0;
   static const double radiusWeatherIconBg = 20.0;
 
-  // ──────────────────────────────
+   
   // ОТСТУПЫ (наиболее повторяемые)
-  // ──────────────────────────────
+   
   static const EdgeInsets padScreen = EdgeInsets.fromLTRB(12, 16, 12, 30);
   static const EdgeInsets padCardContent = EdgeInsets.all(20);
   static const EdgeInsets padGlassCardContent = EdgeInsets.all(14);
@@ -47,9 +47,9 @@ class WeatherConst {
   static const EdgeInsets padForecastItem = EdgeInsets.symmetric(vertical: 8, horizontal: 12);
   static const EdgeInsets padTimeBadge = EdgeInsets.symmetric(horizontal: 6, vertical: 3);
 
-  // ──────────────────────────────
+   
   // ТИПОГРАФИКА
-  // ──────────────────────────────
+   
   static const TextStyle tsCityName = TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: textPrimary);
   static const TextStyle tsDateLabel = TextStyle(fontSize: 13, color: textSecondary, fontWeight: FontWeight.w600);
   static const TextStyle tsHeroTemp = TextStyle(fontSize: 72, fontWeight: FontWeight.w800, color: textPrimary, shadows: [Shadow(blurRadius: 12, color: Colors.black26)]);
@@ -68,23 +68,23 @@ class WeatherConst {
   static const TextStyle tsForecastDesc = TextStyle(fontSize: 12, color: textSecondary);
   static const TextStyle tsForecastTemp = TextStyle(fontSize: 16, color: textPrimary, fontWeight: FontWeight.bold);
 
-  // ──────────────────────────────
+   
   // BLUR
-  // ──────────────────────────────
+   
   static const double blurMain = 20.0;
   static const double blurGlass = 15.0;
 
-  // ──────────────────────────────
+   
   // АНИМАЦИИ
-  // ──────────────────────────────
+   
   static const Duration durFadeIn = Duration(milliseconds: 400);
   static const Duration durHeaderAnim = Duration(milliseconds: 300);
   static const Duration durScrollAnim = Duration(milliseconds: 500);
   static const Duration durPulse = Duration(seconds: 2);
 
-  // ──────────────────────────────
+   
   // ПРОЧЕЕ
-  // ──────────────────────────────
+   
   static const double scrollThreshold = 250.0;
   static const List<String> daysOfWeekFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
   static const double forecastIconSize = 24.0;

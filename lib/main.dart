@@ -154,7 +154,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     });
   }
 
-  // ============ НАВИГАЦИЯ С ОТЛОЖЕННЫМ СТАРТОМ ============
+  // == НАВИГАЦИЯ С ОТЛОЖЕННЫМ СТАРТОМ ==
 
   void _navigateToSettings() {
     Navigator.push(
@@ -213,7 +213,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ======================================================
+  // ====
 
   void _showChartsSheet() {
     final weatherState = weatherScreenKey.currentState;
@@ -248,7 +248,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             offstage: true,
             child: FavoritesScreen(onLocationSelected: null),
           ),
-          // ==========================================================
+          // ========
 
           _buildBottomNav(),
           if (_isMenuOpen) _buildMenuOverlay(),
@@ -405,7 +405,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== НИЖНЯЯ ПАНЕЛЬ ====================
+  //  НИЖНЯЯ ПАНЕЛЬ 
   Widget _buildBottomNav() {
     return Positioned(
       bottom: MediaQuery.of(context).padding.bottom + 12,

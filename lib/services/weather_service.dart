@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 
-// ========== МОДЕЛЬ ДЛЯ ХРАНЕНИЯ ИСТОЧНИКА ДАННЫХ ==========
+//  МОДЕЛЬ ДЛЯ ХРАНЕНИЯ ИСТОЧНИКА ДАННЫХ 
 
 enum WeatherSource {
   openWeatherMap,
@@ -44,12 +44,12 @@ class WeatherResponse {
   bool get hasError => errorMessage != null;
 }
 
-// ========== ОСНОВНОЙ СЕРВИС ==========
+//  ОСНОВНОЙ СЕРВИС 
 
 class WeatherService {
   static const String apiKey = '9b20db828ed34621c416eb444ec5cc3f';
   
-  // ========== УНИВЕРСАЛЬНЫЕ ПАРСЕРЫ ЧИСЕЛ ==========
+  //  УНИВЕРСАЛЬНЫЕ ПАРСЕРЫ ЧИСЕЛ 
   
   static double _parseToDouble(dynamic value) {
     if (value == null) return 0.0;
@@ -68,7 +68,7 @@ class WeatherService {
     return 0;
   }
   
-  // ========== ГЕОЛОКАЦИЯ ==========
+  //  ГЕОЛОКАЦИЯ 
   
   static Future<Position> getCurrentPosition() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -116,7 +116,7 @@ class WeatherService {
     }
   }
   
-  // ========== OPENWEATHERMAP МЕТОДЫ ==========
+  //  OPENWEATHERMAP МЕТОДЫ 
   
   static Future<Map<String, dynamic>> fetchWeather(double lat, double lon) async {
     final response = await http.get(
@@ -163,7 +163,7 @@ class WeatherService {
     return json.decode(response.body);
   }
   
-  // ========== OPEN-METEO — ПОЛНЫЙ ЗАПАСНОЙ ВАРИАНТ ==========
+  //  OPEN-METEO — ПОЛНЫЙ ЗАПАСНОЙ ВАРИАНТ 
   
   static Future<Map<String, dynamic>> fetchAllFromOpenMeteo(double lat, double lon) async {
     try {
@@ -385,7 +385,7 @@ class WeatherService {
     return 'Clear';
   }
   
-  // ========== КОМБИНИРОВАННЫЙ МЕТОД С FALLBACK ==========
+  //  КОМБИНИРОВАННЫЙ МЕТОД С FALLBACK 
   
   static Future<WeatherResponse> fetchAllWeatherDataWithFallback(
     double lat, 
@@ -461,7 +461,7 @@ class WeatherService {
     }
   }
   
-  // ========== СОЛНЦЕ С FALLBACK ==========
+  //  СОЛНЦЕ С FALLBACK 
   
   static Future<Map<String, dynamic>> _fetchSunData(double lat, double lon) async {
     try {
@@ -530,7 +530,7 @@ class WeatherService {
     }
   }
   
-  // ========== МЕТОД ДЛЯ АКТИВНОСТИ (ПОГОДА + КАЧЕСТВО ВОЗДУХА) ==========
+  //  МЕТОД ДЛЯ АКТИВНОСТИ (ПОГОДА + КАЧЕСТВО ВОЗДУХА) 
   
   static Future<Map<String, dynamic>> fetchWeatherAndAirQuality(double lat, double lon) async {
     try {
@@ -572,7 +572,7 @@ class WeatherService {
     }
   }
   
-  // ========== НОВЫЙ МЕТОД: УФ-ИНДЕКС, ТОЧКА РОСЫ, ВИДИМОСТЬ, ВЕРОЯТНОСТЬ ОСАДКОВ, СОЛНЕЧНАЯ РАДИАЦИЯ ==========
+  //  НОВЫЙ МЕТОД: УФ-ИНДЕКС, ТОЧКА РОСЫ, ВИДИМОСТЬ, ВЕРОЯТНОСТЬ ОСАДКОВ, СОЛНЕЧНАЯ РАДИАЦИЯ 
 
 static Future<Map<String, dynamic>> fetchExtraMetricsFromOpenMeteo(double lat, double lon) async {
   try {
@@ -644,7 +644,7 @@ static Future<Map<String, dynamic>> fetchExtraMetricsFromOpenMeteo(double lat, d
   }
 }
   
-  // ========== СТАРЫЙ МЕТОД ДЛЯ СОВМЕСТИМОСТИ ==========
+  //  СТАРЫЙ МЕТОД ДЛЯ СОВМЕСТИМОСТИ 
   
   @Deprecated('Используйте fetchAllWeatherDataWithFallback')
   static Future<Map<String, dynamic>> fetchAllWeatherData(double lat, double lon) async {
@@ -655,7 +655,7 @@ static Future<Map<String, dynamic>> fetchExtraMetricsFromOpenMeteo(double lat, d
     return response.toMap();
   }
   
-  // ========== НОРМАЛИЗАЦИЯ OWM ==========
+  //  НОРМАЛИЗАЦИЯ OWM 
   
   static Map<String, dynamic> _normalizeWeatherData(Map<String, dynamic> data) {
     try {
@@ -760,7 +760,7 @@ static Future<Map<String, dynamic>> fetchExtraMetricsFromOpenMeteo(double lat, d
   }
 }
 
-// ========== РАСШИРЕНИЯ ==========
+//  РАСШИРЕНИЯ 
 
 extension SafeNumberParse on Map<String, dynamic> {
   double getDouble(String key) {
@@ -800,7 +800,7 @@ extension SafeNumberParse on Map<String, dynamic> {
   }
 }
 
-// ========== МОДЕЛЬ ДАННЫХ ПОГОДЫ ==========
+//  МОДЕЛЬ ДАННЫХ ПОГОДЫ 
 
 class WeatherData {
   final Map<String, dynamic> raw;
