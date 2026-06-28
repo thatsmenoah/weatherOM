@@ -1,4 +1,4 @@
-🌦 Weather Cloud
+#Weather Cloud
 
 Offline-first weather engine with multi-provider fusion, intelligent fallback and custom atmospheric processing.
 
