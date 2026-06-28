@@ -29,7 +29,7 @@ class LoadingStateManager extends ChangeNotifier {
   bool get isRefreshing => _state == LoadingState.refreshing;
   bool get hasError => _state == LoadingState.error || _state == LoadingState.offline;
   bool get isOffline => _state == LoadingState.offline;
-  bool get isUsingFallback => _state == LoadingState.usingFallback; // НОВОЕ
+  bool get isUsingFallback => _state == LoadingState.usingFallback;
   
   void startLoading() {
     _state = LoadingState.loading;
@@ -50,10 +50,9 @@ class LoadingStateManager extends ChangeNotifier {
     notifyListeners();
   }
   
-  // НОВЫЙ МЕТОД - когда используем Open-Meteo (это не ошибка!)
   void setFallbackMode() {
     _state = LoadingState.usingFallback;
-    _isUsingStorage = false; // Данные свежие, просто из другого источника
+    _isUsingStorage = false;
     _errorMessage = '';
     _lastUpdateTime = DateTime.now();
     notifyListeners();
@@ -97,12 +96,6 @@ class UpdateTimeIndicator extends StatelessWidget {
     required this.isFromCache,
   });
   
-  String _getCacheStatus() {
-    final messages = ['Не обновлено', 'Устаревшие данные', 'Кеш данные'];
-    final randomIndex = DateTime.now().millisecond % messages.length;
-    return messages[randomIndex];
-  }
-  
   String _formatTime() {
     if (updateTime == null) return 'Обновлено: никогда';
     
@@ -117,7 +110,7 @@ class UpdateTimeIndicator extends StatelessWidget {
     final IconData displayIcon;
     
     if (isFromCache) {
-      displayText = _getCacheStatus();
+      displayText = 'Кеш-данные • ${_formatTime()}';
       displayIcon = Icons.storage;
     } else {
       displayText = _formatTime();
@@ -238,12 +231,14 @@ class StatusToast extends StatefulWidget {
   final bool isVisible;
   final String title;
   final VoidCallback? onDismiss;
+  final Color? backgroundColor;
 
   const StatusToast({
     super.key,
     required this.isVisible,
     this.title = 'Нет сети',
     this.onDismiss,
+    this.backgroundColor,
   });
 
   @override
@@ -364,7 +359,8 @@ class _StatusToastState extends State<StatusToast>
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFdc2626).withValues(alpha: 0.92),
+                      color: widget.backgroundColor ?? 
+                          const Color(0xFFdc2626).withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(

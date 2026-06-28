@@ -3,11 +3,14 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 class DataSystem {
-  static const String _fileName = 'weather_data.json';
+  final String _fileName;
   static const int cacheDurationMinutes = 30;
   
   Map<String, dynamic>? _cachedData;
   DateTime? _lastUpdateTime;
+  
+  // КОНСТРУКТОР С ИМЕНЕМ ФАЙЛА
+  DataSystem({String fileName = 'weather_data.json'}) : _fileName = fileName;
   
   // Состояние хранилища
   bool get hasData => _cachedData != null;
@@ -17,7 +20,7 @@ class DataSystem {
   
   // Получение пути к файлу
   Future<File> _getFile() async {
-    final directory = await getApplicationDocumentsDirectory(); // ← глубокое хранилище
+    final directory = await getApplicationDocumentsDirectory();
     return File('${directory.path}/$_fileName');
   }
   
@@ -54,7 +57,6 @@ class DataSystem {
   
   //  СЕРИАЛИЗАЦИЯ АСТРОНОМИИ 
   
-  /// Преобразует DateTime в строки для JSON
   Map<String, dynamic>? _serializeSunData(Map<String, dynamic>? sun) {
     if (sun == null) return null;
     return {
@@ -63,7 +65,6 @@ class DataSystem {
     };
   }
   
-  /// Преобразует строки обратно в DateTime
   Map<String, dynamic>? _deserializeSunData(Map<String, dynamic>? sun) {
     if (sun == null) return null;
     return {
@@ -72,14 +73,16 @@ class DataSystem {
     };
   }
   
-  /// Десериализует весь кэш (включая астрономию)
   Map<String, dynamic> _deserializeCache(Map<String, dynamic> raw) {
     return {
       'weather': raw['weather'],
       'forecast': raw['forecast'],
       'airQuality': raw['airQuality'],
       'sunData': _deserializeSunData(raw['sunData']),
+      'extraMetrics': raw['extraMetrics'],
       'city': raw['city'],
+      'lat': raw['lat'],
+      'lon': raw['lon'],
       'timestamp': raw['timestamp'],
     };
   }
@@ -89,23 +92,29 @@ class DataSystem {
     required Map<String, dynamic>? weatherData,
     required Map<String, dynamic>? forecastData,
     required Map<String, dynamic>? airQualityData,
-    Map<String, dynamic>? sunData, // ПЕРЕИМЕНОВАНО
+    Map<String, dynamic>? sunData,
+    Map<String, dynamic>? extraMetrics,
     required String cityName,
+    double? lat,
+    double? lon,
   }) async {
     try {
       final cacheData = {
         'weather': weatherData,
         'forecast': forecastData,
         'airQuality': airQualityData,
-        'sunData': _serializeSunData(sunData), // СОЛНЦЕ
+        'sunData': _serializeSunData(sunData),
+        'extraMetrics': extraMetrics,
         'city': cityName,
+        'lat': lat,
+        'lon': lon,
         'timestamp': DateTime.now().toIso8601String(),
       };
       
       final file = await _getFile();
       await file.writeAsString(json.encode(cacheData));
       
-      _cachedData = _deserializeCache(cacheData); // ДЕСЕРИАЛИЗУЕМ ОБРАТНО
+      _cachedData = _deserializeCache(cacheData);
       _lastUpdateTime = DateTime.now();
     } catch (e) {
       // Игнорируем ошибку сохранения
@@ -120,12 +129,10 @@ class DataSystem {
     return null;
   }
 
-  // Получение ВСЕХ кэшированных данных (даже устаревших) — для холодного старта
   Map<String, dynamic>? getAllCachedData() {
     return _cachedData;
   }
   
-  // Очистка хранилища
   Future<void> clearCache() async {
     try {
       final file = await _getFile();
@@ -139,7 +146,6 @@ class DataSystem {
     }
   }
   
-  // Получение конкретных данных
   Map<String, dynamic>? getWeatherFromCache() {
     if (_isCacheValid() && _cachedData != null && _cachedData!.containsKey('weather')) {
       return _cachedData!['weather'];
@@ -161,10 +167,16 @@ class DataSystem {
     return null;
   }
   
-  // ДОБАВЛЕНО: получение астрономии из кэша
   Map<String, dynamic>? getSunDataFromCache() {
     if (_isCacheValid() && _cachedData != null && _cachedData!.containsKey('sunData')) {
       return _cachedData!['sunData'];
+    }
+    return null;
+  }
+  
+  Map<String, dynamic>? getExtraMetricsFromCache() {
+    if (_isCacheValid() && _cachedData != null && _cachedData!.containsKey('extraMetrics')) {
+      return _cachedData!['extraMetrics'];
     }
     return null;
   }
@@ -176,15 +188,29 @@ class DataSystem {
     return null;
   }
   
+  double? getLatFromCache() {
+    if (_cachedData != null && _cachedData!.containsKey('lat')) {
+      return _cachedData!['lat'] as double?;
+    }
+    return null;
+  }
+  
+  double? getLonFromCache() {
+    if (_cachedData != null && _cachedData!.containsKey('lon')) {
+      return _cachedData!['lon'] as double?;
+    }
+    return null;
+  }
+  
   String getLastUpdateTimeString() {
     if (_lastUpdateTime == null) return 'Никогда';
     final now = DateTime.now();
     final difference = now.difference(_lastUpdateTime!);
     
     if (difference.inMinutes < 1) return 'Только что';
-    if (difference.inMinutes < 60) return '${difference.inMinutes} мин назад';
-    if (difference.inHours < 24) return '${difference.inHours} ч назад';
-    return '${difference.inDays} д назад';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} мин. назад';
+    if (difference.inHours < 24) return '${difference.inHours} ч. назад';
+    return '${difference.inDays} д. назад';
   }
   
   double getCacheAgingProgress() {

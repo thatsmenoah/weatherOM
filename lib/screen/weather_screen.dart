@@ -162,7 +162,7 @@ class WeatherScreen extends StatefulWidget {
   State<WeatherScreen> createState() => WeatherScreenState();
 }
 
-class WeatherScreenState extends State<WeatherScreen> {
+class WeatherScreenState extends State<WeatherScreen> with AutomaticKeepAliveClientMixin {
   Map<String, dynamic>? weatherData;
   Map<String, dynamic>? forecastData;
   Map<String, dynamic>? airQualityData;
@@ -189,11 +189,24 @@ class WeatherScreenState extends State<WeatherScreen> {
   
   Map<String, dynamic>? _cachedTip;
 
+  bool _isInitialized = false;
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
-    _initializeApp();
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      _isInitialized = true;
+      _initializeApp();
+    }
   }
 
   @override
@@ -285,7 +298,7 @@ class WeatherScreenState extends State<WeatherScreen> {
     if (response.hasError) {
       if (weatherData != null) {
         setState(() => _showStatusToast = true);
-        _loadingManager.setFallbackMode(); // Вместо setApiError
+        _loadingManager.setFallbackMode();
       } else {
         _loadingManager.setError('Не удалось загрузить погоду');
         if (mounted) setState(() {});
@@ -322,7 +335,7 @@ class WeatherScreenState extends State<WeatherScreen> {
           e.toString().contains('HttpException')) {
         _loadingManager.setOfflineMode();
       } else {
-        _loadingManager.setFallbackMode(); // Вместо setApiError
+        _loadingManager.setFallbackMode();
       }
     } else {
       if (e.toString().contains('SocketException') ||
@@ -405,6 +418,8 @@ class WeatherScreenState extends State<WeatherScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    
     return Container(
       decoration: const BoxDecoration(color: WeatherConst.bgScreen),
       child: SafeArea(
@@ -432,7 +447,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                         iconCode: weatherData!['weather'][0]['icon'],
                         description: weatherData!['weather'][0]['description'],
                         now: DateTime.now(),
-                        isUsingFallback: _isUsingFallback, // ПЕРЕДАЁМ ФЛАГ
+                        isUsingFallback: _isUsingFallback,
                       ),
                     ),
                   ),
@@ -442,11 +457,19 @@ class WeatherScreenState extends State<WeatherScreen> {
               const RepaintBoundary(child: LoadingOverlay()),
             if (_showStatusToast)
   RepaintBoundary(
-    child: StatusToast(
-  isVisible: _showStatusToast,
-  title: _loadingManager.isOffline ? 'Нет сети' : 'Перебои АПИ',
-  onDismiss: () => setState(() => _showStatusToast = false),
-),
+    child: Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: StatusToast(
+          isVisible: _showStatusToast,
+          title: _loadingManager.isOffline ? 'Нет сети' : 'Перебои АПИ',
+          onDismiss: () => setState(() => _showStatusToast = false),
+        ),
+      ),
+    ),
   ),
           ],
         ),
@@ -464,7 +487,7 @@ class WeatherScreenState extends State<WeatherScreen> {
         if (mounted) setState(() {});
         await _initializeApp();
       },
-      isOffline: _loadingManager.isOffline, // Вместо isApiError
+      isOffline: _loadingManager.isOffline,
     );
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import '../services/weather_service.dart';
 import '../utils/weather_utils.dart';
+import '../core/data_system.dart';
+import '../core/loading_system.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -11,42 +13,151 @@ class ActivityScreen extends StatefulWidget {
 }
 
 class _ActivityScreenState extends State<ActivityScreen> {
+  // ДАННЫЕ
   Map<String, dynamic>? weatherData;
   Map<String, dynamic>? airQualityData;
   Map<String, dynamic>? extraMetrics;
-  bool isLoading = true;
-  bool isRefreshing = false;
-  String errorMessage = '';
+  String? cityName;
   double? lat;
   double? lon;
+  
+  // СОСТОЯНИЕ
+  bool _isLoading = false;
+  bool _isRefreshing = false;
+  String _errorMessage = '';
+  bool _hasData = false;
+  
+  // КЕШ И ЗАГРУЗКА
+  final DataSystem _dataSystem = DataSystem(fileName: 'activity_data.json');
+  final LoadingStateManager _loadingManager = LoadingStateManager();
+  
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
-    super.initState();
-    _getLocationAndData();
-  }
+  super.initState();
+  _initDataSystem();
+}
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _loadingManager.dispose();
     super.dispose();
   }
 
-  Future<void> _refreshData() async {
+  @override
+  void didChangeDependencies() {
+      super.didChangeDependencies();
+      // ПРИ ВОЗВРАТЕ НА ЭКРАН ОБНОВЛЯЕМ ДАННЫЕ
+      if (_hasData) {
+      _fetchDataInBackground();
+    }
+  }
+
+  //  ИНИЦИАЛИЗАЦИЯ КЕША И ЗАГРУЗКА ДАННЫХ 
+
+  Future<void> _initDataSystem() async {
+  await _dataSystem.init();
+  
+  final cachedData = _dataSystem.getAllCachedData();
+  
+  if (cachedData != null && _dataSystem.isDataValid) {
+    // ЕСТЬ ВАЛИДНЫЙ КЕШ - ПОКАЗЫВАЕМ СРАЗУ
+    _applyDataFromCache(cachedData);
+    _loadingManager.finishLoading(fromStorage: true);
     setState(() {
-      isRefreshing = true;
+      _hasData = true;
+      _isLoading = false;
     });
-    await _fetchData();
+    
+    // ФОНОВО ОБНОВЛЯЕМ
+    _fetchDataInBackground();
+  } else if (cachedData != null && !_dataSystem.isDataValid) {
+    // ЕСТЬ УСТАРЕВШИЙ КЕШ (30+ МИНУТ)
+    _applyDataFromCache(cachedData);
+    _loadingManager.setOfflineMode();
     setState(() {
-      isRefreshing = false;
+      _hasData = true;
+      _isLoading = false;
+    });
+    
+    // ПЫТАЕМСЯ ОБНОВИТЬ
+    _fetchDataInBackground();
+  } else {
+    // КЕША НЕТ - ПОЛНАЯ ЗАГРУЗКА
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+    _loadingManager.startLoading();
+    await _getLocationAndData();
+  }
+}
+
+  //  ПРИМЕНЕНИЕ ДАННЫХ ИЗ КЕША 
+
+  void _applyDataFromCache(Map<String, dynamic> cachedData) {
+    setState(() {
+      weatherData = cachedData['weather'];
+      airQualityData = cachedData['airQuality'];
+      extraMetrics = cachedData['extraMetrics'];
+      cityName = cachedData['city'];
+      
+      if (cachedData.containsKey('lat')) {
+        lat = cachedData['lat'] as double?;
+        lon = cachedData['lon'] as double?;
+      }
     });
   }
 
+  //  ФОНОВОЕ ОБНОВЛЕНИЕ (БЕЗ КРУЖКА) 
+
+  Future<void> _fetchDataInBackground() async {
+    try {
+      if (lat == null || lon == null) {
+        final position = await WeatherService.getCurrentPosition();
+        lat = position.latitude;
+        lon = position.longitude;
+      }
+      
+      final data = await WeatherService.fetchWeatherAndAirQuality(lat!, lon!);
+      final metrics = await WeatherService.fetchExtraMetricsFromOpenMeteo(lat!, lon!);
+      
+      final cityNameFromData = data['weather']?['name'] ?? 'Неизвестно';
+      
+      await _dataSystem.saveToCache(
+        weatherData: data['weather'],
+        forecastData: null,
+        airQualityData: data['airQuality'],
+        sunData: null,
+        extraMetrics: metrics,
+        cityName: cityNameFromData,
+        lat: lat,
+        lon: lon,
+      );
+      
+      if (mounted) {
+        setState(() {
+          weatherData = data['weather'];
+          airQualityData = data['airQuality'];
+          extraMetrics = metrics;
+          cityName = cityNameFromData;
+          _hasData = true;
+        });
+        _loadingManager.finishLoading(fromStorage: false);
+      }
+    } catch (e) {
+      // ФОНОВАЯ ОШИБКА - ИГНОРИРУЕМ, Т.К. ДАННЫЕ УЖЕ ПОКАЗАНЫ
+    }
+  }
+
+  //  ПОЛНАЯ ЗАГРУЗКА (С КРУЖКОМ) 
+
   Future<void> _getLocationAndData() async {
     setState(() {
-      isLoading = true;
-      errorMessage = '';
+      _isLoading = true;
+      _errorMessage = '';
     });
 
     try {
@@ -55,6 +166,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
       lon = position.longitude;
       await _fetchData();
     } catch (e) {
+      // FALLBACK НА МОСКВУ
       lat = 55.7558;
       lon = 37.6173;
       await _fetchData();
@@ -66,22 +178,93 @@ class _ActivityScreenState extends State<ActivityScreen> {
       final data = await WeatherService.fetchWeatherAndAirQuality(lat!, lon!);
       final metrics = await WeatherService.fetchExtraMetricsFromOpenMeteo(lat!, lon!);
       
+      final cityNameFromData = data['weather']?['name'] ?? 'Неизвестно';
+      
+      await _dataSystem.saveToCache(
+        weatherData: data['weather'],
+        forecastData: null,
+        airQualityData: data['airQuality'],
+        sunData: null,
+        extraMetrics: metrics,
+        cityName: cityNameFromData,
+        lat: lat,
+        lon: lon,
+      );
+      
       setState(() {
         weatherData = data['weather'];
         airQualityData = data['airQuality'];
         extraMetrics = metrics;
-        isLoading = false;
+        cityName = cityNameFromData;
+        _isLoading = false;
+        _hasData = true;
       });
+      
+      _loadingManager.finishLoading(fromStorage: false);
     } catch (e) {
       setState(() {
-        isLoading = false;
-        errorMessage = 'Проверьте подключение к интернету';
+        _isLoading = false;
+        _errorMessage = 'Проверьте подключение к интернету';
       });
+      _loadingManager.setError(_errorMessage);
     }
   }
 
-  String _getCityName() => weatherData?['name'] ?? 'Загрузка...';
+  //  РУЧНОЕ ОБНОВЛЕНИЕ (PULL-TO-REFRESH) 
+
+  Future<void> _refreshData() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+    _loadingManager.startRefreshing();
+    
+    try {
+      if (lat == null || lon == null) {
+        final position = await WeatherService.getCurrentPosition();
+        lat = position.latitude;
+        lon = position.longitude;
+      }
+      
+      final data = await WeatherService.fetchWeatherAndAirQuality(lat!, lon!);
+      final metrics = await WeatherService.fetchExtraMetricsFromOpenMeteo(lat!, lon!);
+      
+      final cityNameFromData = data['weather']?['name'] ?? 'Неизвестно';
+      
+      await _dataSystem.saveToCache(
+        weatherData: data['weather'],
+        forecastData: null,
+        airQualityData: data['airQuality'],
+        sunData: null,
+        extraMetrics: metrics,
+        cityName: cityNameFromData,
+        lat: lat,
+        lon: lon,
+      );
+      
+      setState(() {
+        weatherData = data['weather'];
+        airQualityData = data['airQuality'];
+        extraMetrics = metrics;
+        cityName = cityNameFromData;
+        _isRefreshing = false;
+        _hasData = true;
+      });
+      
+      _loadingManager.finishLoading(fromStorage: false);
+    } catch (e) {
+      setState(() {
+        _isRefreshing = false;
+      });
+      _loadingManager.setError('Ошибка обновления');
+    }
+  }
+
+  //  ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ 
+
+  String _getCityName() => cityName ?? weatherData?['name'] ?? 'Загрузка...';
   double _getAirQualityScore() => WeatherUtils.calculateAirQualityScore(airQualityData);
+
+  //  UI 
 
   @override
   Widget build(BuildContext context) {
@@ -90,23 +273,49 @@ class _ActivityScreenState extends State<ActivityScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            if (isLoading && weatherData == null)
+            //  ОСНОВНОЙ КОНТЕНТ
+            if (_isLoading && !_hasData)
               const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   strokeWidth: 3,
                 ),
               )
-            else if (errorMessage.isNotEmpty && weatherData == null)
+            else if (_errorMessage.isNotEmpty && !_hasData)
               _buildError()
-            else
+            else if (_hasData || weatherData != null)
               RefreshIndicator(
                 onRefresh: _refreshData,
                 color: Colors.white,
                 child: _buildContent(),
+              )
+            else
+              const Center(
+                child: Text(
+                  'Нет данных',
+                  style: TextStyle(color: Color(0xFFa0a0a0)),
+                ),
               ),
             
-            if (isRefreshing) _buildRefreshOverlay(),
+            //  ИНДИКАТОР ОБНОВЛЕНИЯ
+            if (_isRefreshing) _buildRefreshOverlay(),
+            
+            //  ПЛАШКА СТАТУСА (ОФФЛАЙН)
+            if (_loadingManager.isOffline && _hasData)
+              const StatusToast(
+                isVisible: true,
+                title: 'Оффлайн режим • Используются кешированные данные',
+                backgroundColor: Color(0xFFf59e0b),
+              ),
+            
+            //  ПЛАШКА СТАТУСА (ОШИБКА ПРИ ОБНОВЛЕНИИ)
+            if (_loadingManager.hasError && _hasData && !_loadingManager.isOffline)
+              StatusToast(
+                isVisible: true,
+                title: _loadingManager.errorMessage.isNotEmpty 
+                    ? _loadingManager.errorMessage 
+                    : 'Не удалось обновить данные',
+              ),
           ],
         ),
       ),
@@ -142,7 +351,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         children: [
           Icon(Icons.wifi_off, color: Colors.grey[600], size: 64),
           const SizedBox(height: 16),
-          Text(errorMessage, style: const TextStyle(color: Color(0xFFa0a0a0))),
+          Text(_errorMessage, style: const TextStyle(color: Color(0xFFa0a0a0))),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _getLocationAndData,
@@ -167,50 +376,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
         child: Column(
           children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 500),
-              builder: (context, opacity, child) {
-                return Opacity(
-                  opacity: opacity,
-                  child: Transform.translate(
-                    offset: Offset(0, 20 * (1 - opacity)),
-                    child: child,
-                  ),
-                );
-              },
-              child: Column(
-                children: [
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Colors.white, Color(0xFFe3f2fd)],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'Качество воздуха',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Данные для ${_getCityName()}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFFa0a0a0),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
+            _buildHeader(),
             const SizedBox(height: 24),
-            
             if (airQualityData != null) _buildAirQualitySection(),
-            
             if (extraMetrics != null) ...[
               const SizedBox(height: 24),
               _buildExtraMetricsSection(),
@@ -221,20 +389,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  //  СЕКЦИЯ ДОПОЛНИТЕЛЬНО 
-  
-  Widget _buildExtraMetricsSection() {
-    final uvIndex = extraMetrics?['uvIndex'];
-    final dewPoint = extraMetrics?['dewPoint'];
-    final visibility = extraMetrics?['visibility'];
-    final precipProb = extraMetrics?['precipitationProbability'];
-    final shortwaveRad = extraMetrics?['shortwaveRadiation'];
-    
-    if (uvIndex == null && dewPoint == null && visibility == null && 
-        precipProb == null && shortwaveRad == null) {
-      return const SizedBox.shrink();
-    }
-    
+  Widget _buildHeader() {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 500),
@@ -249,203 +404,42 @@ class _ActivityScreenState extends State<ActivityScreen> {
       },
       child: Column(
         children: [
-          if (uvIndex != null) ...[
-            Center(
-              child: ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Colors.white, Color(0xFFe3f2fd)],
-                ).createShader(bounds),
-                child: const Text(
-                  'Дополнительно',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFe3f2fd)],
+            ).createShader(bounds),
+            child: const Text(
+              'Качество воздуха',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 16),
-            _buildMetricRow(
-              icon: Icons.wb_sunny,
-              label: 'УФ-индекс',
-              value: uvIndex.toStringAsFixed(1),
-              description: _getUvDescription(uvIndex),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Данные для ${_getCityName()}',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFFa0a0a0),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (_dataSystem.lastUpdateTime != null) ...[
+            const SizedBox(height: 6),
+            UpdateTimeIndicator(
+              updateTime: _dataSystem.lastUpdateTime,
+              isFromCache: _loadingManager.isUsingStorage,
             ),
           ],
-          
-          if (uvIndex != null && dewPoint != null) const SizedBox(height: 10),
-          
-          if (dewPoint != null)
-            _buildMetricRow(
-              icon: Icons.water_drop,
-              label: 'Точка росы',
-              value: '${dewPoint.round()}°C',
-              description: _getDewPointDescription(dewPoint),
-            ),
-          
-          if ((uvIndex != null || dewPoint != null) && visibility != null) const SizedBox(height: 10),
-          
-          if (visibility != null)
-            _buildMetricRow(
-              icon: Icons.visibility,
-              label: 'Видимость',
-              value: '${(visibility / 1000).toStringAsFixed(1)} км',
-              description: _getVisibilityDescription(visibility),
-            ),
-          
-          if ((uvIndex != null || dewPoint != null || visibility != null) && precipProb != null) 
-            const SizedBox(height: 10),
-          
-          if (precipProb != null)
-            _buildMetricRow(
-              icon: Icons.umbrella,
-              label: 'Вероятность осадков',
-              value: '$precipProb%',
-              description: _getPrecipDescription(precipProb),
-            ),
-          
-          if ((uvIndex != null || dewPoint != null || visibility != null || precipProb != null) && 
-              shortwaveRad != null) 
-            const SizedBox(height: 10),
-          
-          if (shortwaveRad != null)
-            _buildMetricRow(
-              icon: Icons.solar_power,
-              label: 'Солнечная радиация',
-              value: '${shortwaveRad.round()} Вт/м²',
-              description: _getRadiationDescription(shortwaveRad),
-            ),
         ],
       ),
     );
   }
 
-  //  СТРОКА ПОКАЗАТЕЛЯ 
-  
-  Widget _buildMetricRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    required String description,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                  ),
-                  child: Icon(icon, color: Colors.white70, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFFa0a0a0),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        description,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFa0a0a0),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  //  ОПИСАНИЯ 
-  
-  String _getUvDescription(dynamic uv) {
-    if (uv == null) return 'Нет данных';
-    final uvVal = uv is double ? uv : double.tryParse(uv.toString()) ?? 0.0;
-    if (uvVal <= 2) return 'Низкий';
-    if (uvVal <= 5) return 'Умеренный';
-    if (uvVal <= 7) return 'Высокий';
-    if (uvVal <= 10) return 'Очень высокий';
-    return 'Экстремальный';
-  }
-  
-  String _getDewPointDescription(dynamic dewPoint) {
-    if (dewPoint == null) return 'Нет данных';
-    final dp = dewPoint is double ? dewPoint : double.tryParse(dewPoint.toString()) ?? 0.0;
-    if (dp > 20) return 'Душно';
-    if (dp > 15) return 'Влажно';
-    if (dp > 10) return 'Комфортно';
-    return 'Сухо';
-  }
-  
-  String _getVisibilityDescription(dynamic visibility) {
-    if (visibility == null) return 'Нет данных';
-    final vis = visibility is double ? visibility : double.tryParse(visibility.toString()) ?? 0.0;
-    if (vis > 10000) return 'Отличная';
-    if (vis > 5000) return 'Хорошая';
-    if (vis > 1000) return 'Средняя';
-    return 'Туман';
-  }
-  
-  String _getPrecipDescription(dynamic precipProb) {
-    if (precipProb == null) return 'Нет данных';
-    final pp = precipProb is num ? precipProb.toInt() : int.tryParse(precipProb.toString()) ?? 0;
-    if (pp == 0) return 'Без осадков';
-    if (pp <= 20) return 'Маловероятно';
-    if (pp <= 50) return 'Возможно';
-    if (pp <= 80) return 'Вероятно';
-    return 'Точно будет';
-  }
-  
-  String _getRadiationDescription(dynamic radiation) {
-    if (radiation == null) return 'Нет данных';
-    final rad = radiation is double ? radiation : double.tryParse(radiation.toString()) ?? 0.0;
-    if (rad <= 0) return 'Ночь';
-    if (rad <= 200) return 'Пасмурно';
-    if (rad <= 500) return 'Облачно';
-    if (rad <= 800) return 'Переменная облачность';
-    return 'Ясно';
-  }
-
   //  СЕКЦИЯ КАЧЕСТВА ВОЗДУХА 
-  
+
   Widget _buildAirQualitySection() {
     final airScore = _getAirQualityScore();
     final comp = airQualityData!['list'][0]['components'];
@@ -584,13 +578,225 @@ class _ActivityScreenState extends State<ActivityScreen> {
       ),
     );
   }
-}
 
-//  УБИРАЕМ СВЕЧЕНИЕ ПРИ ПРОКРУТКЕ 
+  //  СЕКЦИЯ ДОПОЛНИТЕЛЬНЫХ ПОКАЗАТЕЛЕЙ 
 
-class NoGlowBehavior extends ScrollBehavior {
-  @override
-  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) {
-    return child;
+  Widget _buildExtraMetricsSection() {
+    final uvIndex = extraMetrics?['uvIndex'];
+    final dewPoint = extraMetrics?['dewPoint'];
+    final visibility = extraMetrics?['visibility'];
+    final precipProb = extraMetrics?['precipitationProbability'];
+    final shortwaveRad = extraMetrics?['shortwaveRadiation'];
+    
+    if (uvIndex == null && dewPoint == null && visibility == null && 
+        precipProb == null && shortwaveRad == null) {
+      return const SizedBox.shrink();
+    }
+    
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 500),
+      builder: (context, opacity, child) {
+        return Opacity(
+          opacity: opacity,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - opacity)),
+            child: child,
+          ),
+        );
+      },
+      child: Column(
+        children: [
+          if (uvIndex != null) ...[
+            Center(
+              child: ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Colors.white, Color(0xFFe3f2fd)],
+                ).createShader(bounds),
+                child: const Text(
+                  'Дополнительно',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildMetricRow(
+              icon: Icons.wb_sunny,
+              label: 'УФ-индекс',
+              value: uvIndex.toStringAsFixed(1),
+              description: _getUvDescription(uvIndex),
+            ),
+          ],
+          
+          if (uvIndex != null && dewPoint != null) const SizedBox(height: 10),
+          
+          if (dewPoint != null)
+            _buildMetricRow(
+              icon: Icons.water_drop,
+              label: 'Точка росы',
+              value: '${dewPoint.round()}°C',
+              description: _getDewPointDescription(dewPoint),
+            ),
+          
+          if ((uvIndex != null || dewPoint != null) && visibility != null) const SizedBox(height: 10),
+          
+          if (visibility != null)
+            _buildMetricRow(
+              icon: Icons.visibility,
+              label: 'Видимость',
+              value: '${(visibility / 1000).toStringAsFixed(1)} км',
+              description: _getVisibilityDescription(visibility),
+            ),
+          
+          if ((uvIndex != null || dewPoint != null || visibility != null) && precipProb != null) 
+            const SizedBox(height: 10),
+          
+          if (precipProb != null)
+            _buildMetricRow(
+              icon: Icons.umbrella,
+              label: 'Вероятность осадков',
+              value: '$precipProb%',
+              description: _getPrecipDescription(precipProb),
+            ),
+          
+          if ((uvIndex != null || dewPoint != null || visibility != null || precipProb != null) && 
+              shortwaveRad != null) 
+            const SizedBox(height: 10),
+          
+          if (shortwaveRad != null)
+            _buildMetricRow(
+              icon: Icons.solar_power,
+              label: 'Солнечная радиация',
+              value: '${shortwaveRad.round()} Вт/м²',
+              description: _getRadiationDescription(shortwaveRad),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required String description,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Icon(icon, color: Colors.white70, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFa0a0a0),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFa0a0a0),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  //  ОПИСАНИЯ ДЛЯ ПОКАЗАТЕЛЕЙ 
+
+  String _getUvDescription(dynamic uv) {
+    if (uv == null) return 'Нет данных';
+    final uvVal = uv is double ? uv : double.tryParse(uv.toString()) ?? 0.0;
+    if (uvVal <= 2) return 'Низкий';
+    if (uvVal <= 5) return 'Умеренный';
+    if (uvVal <= 7) return 'Высокий';
+    if (uvVal <= 10) return 'Очень высокий';
+    return 'Экстремальный';
+  }
+  
+  String _getDewPointDescription(dynamic dewPoint) {
+    if (dewPoint == null) return 'Нет данных';
+    final dp = dewPoint is double ? dewPoint : double.tryParse(dewPoint.toString()) ?? 0.0;
+    if (dp > 20) return 'Душно';
+    if (dp > 15) return 'Влажно';
+    if (dp > 10) return 'Комфортно';
+    return 'Сухо';
+  }
+  
+  String _getVisibilityDescription(dynamic visibility) {
+    if (visibility == null) return 'Нет данных';
+    final vis = visibility is double ? visibility : double.tryParse(visibility.toString()) ?? 0.0;
+    if (vis > 10000) return 'Отличная';
+    if (vis > 5000) return 'Хорошая';
+    if (vis > 1000) return 'Средняя';
+    return 'Туман';
+  }
+  
+  String _getPrecipDescription(dynamic precipProb) {
+    if (precipProb == null) return 'Нет данных';
+    final pp = precipProb is num ? precipProb.toInt() : int.tryParse(precipProb.toString()) ?? 0;
+    if (pp == 0) return 'Без осадков';
+    if (pp <= 20) return 'Маловероятно';
+    if (pp <= 50) return 'Возможно';
+    if (pp <= 80) return 'Вероятно';
+    return 'Точно будет';
+  }
+  
+  String _getRadiationDescription(dynamic radiation) {
+    if (radiation == null) return 'Нет данных';
+    final rad = radiation is double ? radiation : double.tryParse(radiation.toString()) ?? 0.0;
+    if (rad <= 0) return 'Ночь';
+    if (rad <= 200) return 'Пасмурно';
+    if (rad <= 500) return 'Облачно';
+    if (rad <= 800) return 'Переменная облачность';
+    return 'Ясно';
   }
 }

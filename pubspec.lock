@@ -105,6 +105,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.9"
+  dart_suncalc:
+    dependency: "direct main"
+    description:
+      name: dart_suncalc
+      sha256: d36b0f1abb64439f44846586d380e77dcaaf327feb3e9a9ce3faa52edb21b404
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   dbus:
     dependency: transitive
     description:
