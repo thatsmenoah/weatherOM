@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
 import 'screen/weather_screen.dart';
-import 'screen/activity_screen.dart';
+import 'screen/another_screen.dart';
 import 'screen/settings_screen.dart';
 import 'screen/favorites_screen.dart';
 import 'screen/charts_sheet.dart';
