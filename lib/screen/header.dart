@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import '../utils/weather_utils.dart';
+import '../utils/time_utils.dart';
 
 class CompactWeatherHeader extends StatelessWidget {
-  final String cityName;
+  final String cityName;           // ← ТОЛЬКО РАЙОН
   final int temp;
   final int feelsLike;
   final String iconCode;
   final String description;
   final DateTime now;
-  final bool isUsingFallback; // НОВЫЙ ПАРАМЕТР
+  final bool isUsingFallback;
 
   const CompactWeatherHeader({
     super.key,
@@ -18,23 +19,14 @@ class CompactWeatherHeader extends StatelessWidget {
     required this.iconCode,
     required this.description,
     required this.now,
-    this.isUsingFallback = false, // ПО УМОЛЧАНИЮ FALSE
+    this.isUsingFallback = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final weekdays = [
-      'Пн',
-      'Вт',
-      'Ср',
-      'Чт',
-      'Пт',
-      'Сб',
-      'Вс'
-    ];
+    final weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     final weekday = weekdays[now.weekday - 1];
-    final time =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final time = TimeUtils.formatTime(context, now);
 
     return Container(
       decoration: const BoxDecoration(
@@ -49,32 +41,33 @@ class CompactWeatherHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ЛОКАЦИЯ С ИНДИКАТОРОМ ИСТОЧНИКА
           Row(
             children: [
               Expanded(
-                child: Text(
-                  cityName,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    height: 1.1,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      cityName,  // ← ТОЛЬКО РАЙОН
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    // ❌ ГОРОД УБРАН
+                  ],
                 ),
               ),
-              // ===== ИНДИКАТОР ИСТОЧНИКА ДАННЫХ =====
-              
             ],
           ),
-          const SizedBox(height: 32),
-          // Основной ряд
+          const SizedBox(height: 28),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ГРАДУСЫ
               Text(
                 '$temp°',
                 style: const TextStyle(
@@ -85,7 +78,6 @@ class CompactWeatherHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // Ощущения + день недели
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -112,7 +104,6 @@ class CompactWeatherHeader extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              // Иконка погоды
               Icon(
                 WeatherUtils.getWeatherIcon(iconCode),
                 color: Colors.white,

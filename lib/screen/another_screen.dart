@@ -35,9 +35,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   @override
   void initState() {
-  super.initState();
-  _initDataSystem();
-}
+    super.initState();
+    _initDataSystem();
+  }
 
   @override
   void dispose() {
@@ -48,54 +48,44 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   @override
   void didChangeDependencies() {
-      super.didChangeDependencies();
-      // ПРИ ВОЗВРАТЕ НА ЭКРАН ОБНОВЛЯЕМ ДАННЫЕ
-      if (_hasData) {
+    super.didChangeDependencies();
+    if (_hasData) {
       _fetchDataInBackground();
     }
   }
 
-  //  ИНИЦИАЛИЗАЦИЯ КЕША И ЗАГРУЗКА ДАННЫХ 
-
   Future<void> _initDataSystem() async {
-  await _dataSystem.init();
-  
-  final cachedData = _dataSystem.getAllCachedData();
-  
-  if (cachedData != null && _dataSystem.isDataValid) {
-    // ЕСТЬ ВАЛИДНЫЙ КЕШ - ПОКАЗЫВАЕМ СРАЗУ
-    _applyDataFromCache(cachedData);
-    _loadingManager.finishLoading(fromStorage: true);
-    setState(() {
-      _hasData = true;
-      _isLoading = false;
-    });
+    await _dataSystem.init();
     
-    // ФОНОВО ОБНОВЛЯЕМ
-    _fetchDataInBackground();
-  } else if (cachedData != null && !_dataSystem.isDataValid) {
-    // ЕСТЬ УСТАРЕВШИЙ КЕШ (30+ МИНУТ)
-    _applyDataFromCache(cachedData);
-    _loadingManager.setOfflineMode();
-    setState(() {
-      _hasData = true;
-      _isLoading = false;
-    });
+    final cachedData = _dataSystem.getAllCachedData();
     
-    // ПЫТАЕМСЯ ОБНОВИТЬ
-    _fetchDataInBackground();
-  } else {
-    // КЕША НЕТ - ПОЛНАЯ ЗАГРУЗКА
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-    _loadingManager.startLoading();
-    await _getLocationAndData();
+    if (cachedData != null && _dataSystem.isDataValid) {
+      _applyDataFromCache(cachedData);
+      _loadingManager.finishLoading(fromStorage: true);
+      setState(() {
+        _hasData = true;
+        _isLoading = false;
+      });
+      
+      _fetchDataInBackground();
+    } else if (cachedData != null && !_dataSystem.isDataValid) {
+      _applyDataFromCache(cachedData);
+      _loadingManager.setOfflineMode();
+      setState(() {
+        _hasData = true;
+        _isLoading = false;
+      });
+      
+      _fetchDataInBackground();
+    } else {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+      _loadingManager.startLoading();
+      await _getLocationAndData();
+    }
   }
-}
-
-  //  ПРИМЕНЕНИЕ ДАННЫХ ИЗ КЕША 
 
   void _applyDataFromCache(Map<String, dynamic> cachedData) {
     setState(() {
@@ -110,8 +100,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
       }
     });
   }
-
-  //  ФОНОВОЕ ОБНОВЛЕНИЕ (БЕЗ КРУЖКА) 
 
   Future<void> _fetchDataInBackground() async {
     try {
@@ -152,8 +140,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
-  //  ПОЛНАЯ ЗАГРУЗКА (С КРУЖКОМ) 
-
   Future<void> _getLocationAndData() async {
     setState(() {
       _isLoading = true;
@@ -166,7 +152,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
       lon = position.longitude;
       await _fetchData();
     } catch (e) {
-      // FALLBACK НА МОСКВУ
       lat = 55.7558;
       lon = 37.6173;
       await _fetchData();
@@ -209,8 +194,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
       _loadingManager.setError(_errorMessage);
     }
   }
-
-  //  РУЧНОЕ ОБНОВЛЕНИЕ (PULL-TO-REFRESH) 
 
   Future<void> _refreshData() async {
     setState(() {
@@ -259,12 +242,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
-  //  ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ 
-
-  String _getCityName() => cityName ?? weatherData?['name'] ?? 'Загрузка...';
   double _getAirQualityScore() => WeatherUtils.calculateAirQualityScore(airQualityData);
-
-  //  UI 
 
   @override
   Widget build(BuildContext context) {
@@ -273,7 +251,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            //  ОСНОВНОЙ КОНТЕНТ
             if (_isLoading && !_hasData)
               const Center(
                 child: CircularProgressIndicator(
@@ -297,10 +274,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
                 ),
               ),
             
-            //  ИНДИКАТОР ОБНОВЛЕНИЯ
             if (_isRefreshing) _buildRefreshOverlay(),
             
-            //  ПЛАШКА СТАТУСА (ОФФЛАЙН)
             if (_loadingManager.isOffline && _hasData)
               const StatusToast(
                 isVisible: true,
@@ -308,7 +283,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
                 backgroundColor: Color(0xFFf59e0b),
               ),
             
-            //  ПЛАШКА СТАТУСА (ОШИБКА ПРИ ОБНОВЛЕНИИ)
             if (_loadingManager.hasError && _hasData && !_loadingManager.isOffline)
               StatusToast(
                 isVisible: true,
@@ -373,7 +347,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
       child: SingleChildScrollView(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
         child: Column(
           children: [
             _buildHeader(),
@@ -390,55 +364,45 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }
 
   Widget _buildHeader() {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 500),
-      builder: (context, opacity, child) {
-        return Opacity(
-          opacity: opacity,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - opacity)),
-            child: child,
-          ),
-        );
-      },
-      child: Column(
-        children: [
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Colors.white, Color(0xFFe3f2fd)],
-            ).createShader(bounds),
-            child: const Text(
-              'Качество воздуха',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
+  return TweenAnimationBuilder<double>(
+    tween: Tween(begin: 0.0, end: 1.0),
+    duration: const Duration(milliseconds: 500),
+    builder: (context, opacity, child) {
+      return Opacity(
+        opacity: opacity,
+        child: Transform.translate(
+          offset: Offset(0, 20 * (1 - opacity)),
+          child: child,
+        ),
+      );
+    },
+    child: Column(
+      children: [
+        ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Colors.white, Color(0xFFe3f2fd)],
+          ).createShader(bounds),
+          child: const Text(
+            'Качество воздуха',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Данные для ${_getCityName()}',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFFa0a0a0),
-              fontWeight: FontWeight.w600,
-            ),
+        ),
+        // ❌ СТРОКА "Данные для ..." УДАЛЕНА
+        if (_dataSystem.lastUpdateTime != null) ...[
+          const SizedBox(height: 6),
+          UpdateTimeIndicator(
+            updateTime: _dataSystem.lastUpdateTime,
+            isFromCache: _loadingManager.isUsingStorage,
           ),
-          if (_dataSystem.lastUpdateTime != null) ...[
-            const SizedBox(height: 6),
-            UpdateTimeIndicator(
-              updateTime: _dataSystem.lastUpdateTime,
-              isFromCache: _loadingManager.isUsingStorage,
-            ),
-          ],
         ],
-      ),
-    );
-  }
-
-  //  СЕКЦИЯ КАЧЕСТВА ВОЗДУХА 
+      ],
+    ),
+  );
+}
 
   Widget _buildAirQualitySection() {
     final airScore = _getAirQualityScore();
@@ -578,8 +542,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
       ),
     );
   }
-
-  //  СЕКЦИЯ ДОПОЛНИТЕЛЬНЫХ ПОКАЗАТЕЛЕЙ 
 
   Widget _buildExtraMetricsSection() {
     final uvIndex = extraMetrics?['uvIndex'];
@@ -749,8 +711,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
       ),
     );
   }
-
-  //  ОПИСАНИЯ ДЛЯ ПОКАЗАТЕЛЕЙ 
 
   String _getUvDescription(dynamic uv) {
     if (uv == null) return 'Нет данных';

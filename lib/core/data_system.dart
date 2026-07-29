@@ -55,8 +55,7 @@ class DataSystem {
     return DateTime.now().difference(_lastUpdateTime!).inMinutes < cacheDurationMinutes;
   }
   
-  //  СЕРИАЛИЗАЦИЯ АСТРОНОМИИ 
-  
+  // СЕРИАЛИЗАЦИЯ АСТРОНОМИИ 
   Map<String, dynamic>? _serializeSunData(Map<String, dynamic>? sun) {
     if (sun == null) return null;
     return {
@@ -84,6 +83,7 @@ class DataSystem {
       'lat': raw['lat'],
       'lon': raw['lon'],
       'timestamp': raw['timestamp'],
+      'locationDetails': raw['locationDetails'],
     };
   }
   
@@ -97,11 +97,38 @@ class DataSystem {
     required String cityName,
     double? lat,
     double? lon,
+    Map<String, dynamic>? locationDetails,
   }) async {
     try {
+      // Нормализуем прогноз - убеждаемся, что у всех элементов есть влажность
+      Map<String, dynamic>? normalizedForecast = forecastData;
+      if (forecastData != null && forecastData['list'] != null) {
+        final list = forecastData['list'] as List;
+        normalizedForecast = Map<String, dynamic>.from(forecastData);
+        final normalizedList = <Map<String, dynamic>>[];
+        for (var item in list) {
+          final normalizedItem = Map<String, dynamic>.from(item as Map);
+          if (normalizedItem['main'] != null) {
+            final main = Map<String, dynamic>.from(normalizedItem['main']);
+            if (!main.containsKey('humidity') || main['humidity'] == null) {
+              // Если влажности нет, добавляем из текущей погоды или 0
+              if (weatherData != null && weatherData['main'] != null && 
+                  weatherData['main']['humidity'] != null) {
+                main['humidity'] = weatherData['main']['humidity'];
+              } else {
+                main['humidity'] = 0;
+              }
+            }
+            normalizedItem['main'] = main;
+          }
+          normalizedList.add(normalizedItem);
+        }
+        normalizedForecast['list'] = normalizedList;
+      }
+      
       final cacheData = {
         'weather': weatherData,
-        'forecast': forecastData,
+        'forecast': normalizedForecast,
         'airQuality': airQualityData,
         'sunData': _serializeSunData(sunData),
         'extraMetrics': extraMetrics,
@@ -109,6 +136,7 @@ class DataSystem {
         'lat': lat,
         'lon': lon,
         'timestamp': DateTime.now().toIso8601String(),
+        'locationDetails': locationDetails,
       };
       
       final file = await _getFile();
@@ -160,6 +188,38 @@ class DataSystem {
     return null;
   }
   
+  // Получение прогноза с гарантированной влажностью
+  Map<String, dynamic>? getForecastWithHumidity() {
+    if (!_isCacheValid() || _cachedData == null) return null;
+    
+    final forecast = _cachedData!['forecast'];
+    if (forecast == null) return null;
+    
+    final list = forecast['list'] as List?;
+    if (list == null || list.isEmpty) return forecast;
+    
+    // Убеждаемся, что у каждого элемента есть humidity
+    for (var item in list) {
+      if (item['main'] != null && !item['main'].containsKey('humidity')) {
+        final weather = getWeatherFromCache();
+        if (weather != null && weather['main'] != null && weather['main']['humidity'] != null) {
+          item['main']['humidity'] = weather['main']['humidity'];
+        } else {
+          item['main']['humidity'] = 0;
+        }
+      }
+    }
+    
+    return forecast;
+  }
+  
+  // Метод для получения влажности для конкретного элемента прогноза
+  int? getHumidityForForecastItem(Map<String, dynamic> item) {
+  if (item['main'] == null) return null;
+  return item['main']['humidity'] as int?;
+
+  }
+  
   Map<String, dynamic>? getAirQualityFromCache() {
     if (_isCacheValid() && _cachedData != null && _cachedData!.containsKey('airQuality')) {
       return _cachedData!['airQuality'];
@@ -184,6 +244,13 @@ class DataSystem {
   String? getCityFromCache() {
     if (_isCacheValid() && _cachedData != null && _cachedData!.containsKey('city')) {
       return _cachedData!['city'];
+    }
+    return null;
+  }
+  
+  Map<String, dynamic>? getLocationDetailsFromCache() {
+    if (_cachedData != null && _cachedData!.containsKey('locationDetails')) {
+      return _cachedData!['locationDetails'] as Map<String, dynamic>?;
     }
     return null;
   }

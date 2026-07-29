@@ -1,6 +1,5 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/storage_info_system.dart';
 import '../core/data_system.dart';
 import '../constants/settings_const.dart';
@@ -23,6 +22,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _dataSize = 0;
   bool _isLoading = true;
   bool _isClearing = false;
+  
+  // Переменная для выбранного языка
+  String _selectedLanguage = 'Русский';
 
   @override
   void initState() {
@@ -46,7 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('❌ Ошибка в _loadDataSize: $e');
+      debugPrint('Ошибка в _loadDataSize: $e');
       setState(() {
         _dataSize = 0;
         _isLoading = false;
@@ -62,11 +64,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _loadDataSize();
       setState(() => _isClearing = false);
     } catch (e) {
-      debugPrint('❌ Ошибка в _clearData: $e');
+      debugPrint('Ошибка в _clearData: $e');
       setState(() => _isClearing = false);
     }
   }
 
+  /* // БЛОК СВЯЗИ С TELEGRAM ЗАКОММЕНТИРОВАН
   Future<void> _reportBug() async {
     final Uri telegramAppUri = Uri.parse('tg://resolve?domain=${SettingsConst.telegramUsername}');
     final Uri telegramWebUri = Uri.parse('https://t.me/${SettingsConst.telegramUsername}');
@@ -81,10 +84,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       try {
         await launchUrl(telegramWebUri, mode: LaunchMode.externalApplication);
       } catch (e) {
-        debugPrint('❌ Не удалось открыть Telegram: $e');
+        debugPrint('Не удалось открыть Telegram: $e');
       }
     }
   }
+  // КОНЕЦ БЛОКА TELEGRAM */
 
   void _showChangelog() {
     showModalBottomSheet(
@@ -114,10 +118,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildLanguageSection(),
+                        const SizedBox(height: 24),
                         _buildDataSection(),
                         const SizedBox(height: 24),
+                        /* // СЕКЦИЯ "ПОМОЩЬ И ОБРАТНАЯ СВЯЗЬ" ЗАКОММЕНТИРОВАНА
                         _buildReportSection(),
                         const SizedBox(height: 24),
+                        // КОНЕЦ СЕКЦИИ */
                         _buildAboutSection(),
                         const SizedBox(height: 24),
                         _buildChangelogButton(),
@@ -155,6 +163,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(width: 12),
           const Expanded(child: Text('Настройки', style: SettingsConst.tsHeaderTitle)),
         ],
+      ),
+    );
+  }
+
+  // НОВЫЙ БЛОК - ВЫБОР ЯЗЫКА
+  Widget _buildLanguageSection() {
+    return FadeInWrapper(
+      duration: const Duration(milliseconds: 300),
+      offsetY: 10,
+      child: Container(
+        decoration: BoxDecoration(
+          color: SettingsConst.bgCard,
+          borderRadius: BorderRadius.circular(SettingsConst.radiusCard),
+          border: SettingsConst.defaultBorder,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(SettingsConst.radiusCard),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: SettingsConst.blurGlass, sigmaY: SettingsConst.blurGlass),
+            child: Padding(
+              padding: SettingsConst.padCardContent,
+              child: Row(
+                children: [
+                  Container(
+                    width: SettingsConst.sectionIconBoxSize,
+                    height: SettingsConst.sectionIconBoxSize,
+                    decoration: BoxDecoration(
+                      color: SettingsConst.bgIconBox,
+                      borderRadius: BorderRadius.circular(SettingsConst.radiusIconBox),
+                      border: Border.all(color: SettingsConst.accentBlue.withValues(alpha: 0.2)),
+                    ),
+                    child: const Icon(Icons.language_rounded, color: SettingsConst.accentBlue, size: SettingsConst.sectionIconSize),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Язык',
+                      style: SettingsConst.tsSectionTitle,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: SettingsConst.bgMenuButton,
+                      borderRadius: BorderRadius.circular(8),
+                      border: SettingsConst.subtleBorder06,
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedLanguage,
+                        dropdownColor: const Color(0xFF1A1A1A),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        icon: const Icon(
+                          Icons.arrow_drop_down_rounded,
+                          color: SettingsConst.textDim,
+                          size: 24,
+                        ),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedLanguage = newValue;
+                            });
+                          }
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Русский',
+                            child: Text('Русский'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Английский',
+                            child: Text('Английский'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -229,14 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 valueColor: AlwaysStoppedAnimation<Color>(SettingsConst.textPrimary),
                               ),
                             )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.delete_outline_rounded, size: 18, color: SettingsConst.textPrimary),
-                                SizedBox(width: 8),
-                                Text('Очистить данные', style: SettingsConst.tsButtonText),
-                              ],
-                            ),
+                          : const Text('Очистить данные', style: SettingsConst.tsButtonText),
                     ),
                   ),
                 ],
@@ -248,6 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /* // СЕКЦИЯ "ПОМОЩЬ И ОБРАТНАЯ СВЯЗЬ" - НЕЙТРАЛЬНАЯ ВЕРСИЯ (ЗАКОММЕНТИРОВАНА)
   Widget _buildReportSection() {
     return FadeInWrapper(
       duration: SettingsConst.durSectionFade2,
@@ -277,23 +365,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           borderRadius: BorderRadius.circular(SettingsConst.radiusIconBox),
                           border: SettingsConst.defaultBorder,
                         ),
-                        child: const Icon(Icons.bug_report_rounded, color: SettingsConst.textPrimary, size: SettingsConst.sectionIconSize),
+                        child: const Icon(Icons.help_outline_rounded, color: SettingsConst.textPrimary, size: SettingsConst.sectionIconSize),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Помощь и обратная связь', style: SettingsConst.tsSectionTitle),
+                            Text('Обратная связь', style: SettingsConst.tsSectionTitle),
                             SizedBox(height: 2),
-                            Text('Сообщите о проблеме в Telegram', style: SettingsConst.tsSectionSubtitle),
+                            Text('Помогите нам стать лучше', style: SettingsConst.tsSectionSubtitle),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildMenuButton(icon: Icons.send_rounded, label: 'Написать в Telegram', onTap: _reportBug),
+                  _buildMenuButton(
+                    icon: Icons.email_outlined, 
+                    label: 'Написать нам', 
+                    onTap: _sendFeedback,
+                  ),
                 ],
               ),
             ),
@@ -302,6 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+  // КОНЕЦ СЕКЦИИ "ПОМОЩЬ И ОБРАТНАЯ СВЯЗЬ" */
 
   Widget _buildAboutSection() {
     return FadeInWrapper(

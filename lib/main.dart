@@ -5,7 +5,7 @@ import 'screen/weather_screen.dart';
 import 'screen/another_screen.dart';
 import 'screen/settings_screen.dart';
 import 'screen/favorites_screen.dart';
-import 'screen/charts_sheet.dart';
+// import 'screen/charts_sheet.dart';  // ← закомментирован импорт графиков
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,17 +54,26 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   int _currentIndex = 0;
   bool _isMenuOpen = false;
+  bool _showNav = true; // ← true = навигация видна, false = скрыта
+  
   late AnimationController _navAnimationController;
   late AnimationController _menuAnimationController;
+  late AnimationController _navSlideController;
+  
   late Animation<double> _navAnimation;
   late Animation<double> _menuScaleAnimation;
   late Animation<double> _menuFadeAnimation;
   late Animation<Offset> _menuSlideAnimation;
+  late Animation<Offset> _navSlideAnimation;
+
+  // ← для отслеживания направления прокрутки
+  double _lastScrollOffset = 0.0;
+  static const double _scrollThreshold = 20.0; // минимальное изменение для срабатывания
 
   final LayerLink _layerLink = LayerLink();
   late final List<Widget> _screens;
 
-   @override
+  @override
   void initState() {
     super.initState();
 
@@ -103,12 +112,30 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       parent: _menuAnimationController,
       curve: Curves.easeOutCubic,
     ));
+
+    // НОВОЕ: контроллер для слайда навигации
+    _navSlideController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _navSlideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, 0.20), // смещение вниз на 20%
+    ).animate(CurvedAnimation(
+      parent: _navSlideController,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Изначально навигация видна
+    _navSlideController.value = 0.0;
+    _showNav = true;
   }
 
   @override
   void dispose() {
     _navAnimationController.dispose();
     _menuAnimationController.dispose();
+    _navSlideController.dispose();
     super.dispose();
   }
 
@@ -154,6 +181,25 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     });
   }
 
+  // НОВОЕ: обновление позиции навигации по направлению прокрутки
+  void _updateNavPosition(double scrollOffset, bool isScrollingDown) {
+    // Игнорируем очень маленькие смещения
+    if ((scrollOffset - _lastScrollOffset).abs() < _scrollThreshold) return;
+    
+    setState(() {
+      if (isScrollingDown && _showNav) {
+        // Прокрутка вниз → прячем навигацию
+        _showNav = false;
+        _navSlideController.forward();
+      } else if (!isScrollingDown && !_showNav) {
+        // Прокрутка вверх → показываем навигацию
+        _showNav = true;
+        _navSlideController.reverse();
+      }
+      _lastScrollOffset = scrollOffset;
+    });
+  }
+
   // == НАВИГАЦИЯ С ОТЛОЖЕННЫМ СТАРТОМ ==
 
   void _navigateToSettings() {
@@ -166,7 +212,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
 
-          // Задержка ~5% от длительности — страница успевает отрисоваться
           final curvedAnimation = CurvedAnimation(
             parent: animation,
             curve: const Interval(0.05, 1.0, curve: Curves.easeOutCubic),
@@ -215,6 +260,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   // ====
 
+  /* // ← БЛОК ГРАФИКОВ ЗАКОММЕНТИРОВАН
   void _showChartsSheet() {
     final weatherState = weatherScreenKey.currentState;
     if (weatherState?.weatherData == null) return;
@@ -230,14 +276,30 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       ),
     );
   }
+  // КОНЕЦ БЛОКА ГРАФИКОВ */
 
-   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF191919),
+      extendBody: true,
       body: Stack(
         children: [
-          _screens[_currentIndex],
+          // Оборачиваем ВСЕ экраны в слушатель прокрутки
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollUpdateNotification) {
+                final scrollOffset = notification.metrics.pixels;
+                final isScrollingDown = scrollOffset > _lastScrollOffset;
+                _updateNavPosition(scrollOffset, isScrollingDown);
+              }
+              return false;
+            },
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+          ),
 
           // ======== OFFSTAGE ПРЕДЗАГРУЗКА (прогрев Impeller) ========
           const Offstage(
@@ -340,12 +402,14 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                     }),
                   ),
                   _buildDivider(),
+                  /* // ← ПУНКТ "ГРАФИКИ" ЗАКОММЕНТИРОВАН
                   _buildMenuItem(
                     icon: Icons.show_chart_rounded,
                     label: 'Графики',
                     onTap: () => _onMenuItemTap(() => _showChartsSheet()),
                   ),
                   _buildDivider(),
+                  // КОНЕЦ ПУНКТА ГРАФИКИ */
                   _buildMenuItem(
                     icon: Icons.settings_outlined,
                     label: 'Настройки',
@@ -405,41 +469,49 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  //  НИЖНЯЯ ПАНЕЛЬ 
+  //  НИЖНЯЯ ПАНЕЛЬ с анимацией слайда
   Widget _buildBottomNav() {
     return Positioned(
       bottom: MediaQuery.of(context).padding.bottom + 12,
       left: 0,
       right: 0,
-      child: Center(
-        child: FadeTransition(
-          opacity: _navAnimation,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                _buildCircleButton(
-                  child: const Icon(Icons.arrow_back_rounded,
-                      color: Colors.white, size: 28),
-                  onTap: () => _onNavItemTap(0),
+      child: AnimatedBuilder(
+        animation: _navSlideAnimation,
+        builder: (context, child) {
+          // Смещение: максимум 100px вниз (0.20 * 500 = 100px)
+          final double offsetY = _navSlideAnimation.value.dy * 500;
+          return Transform.translate(
+            offset: Offset(0, offsetY),
+            child: FadeTransition(
+              opacity: _navAnimation,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    _buildCircleButton(
+                      child: const Icon(Icons.arrow_back_rounded,
+                          color: Colors.white, size: 28),
+                      onTap: () => _onNavItemTap(0),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildSearchPill()),
+                    const SizedBox(width: 8),
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: _buildCircleButton(
+                        child: _isMenuOpen
+                            ? const Icon(Icons.close_rounded,
+                                color: Colors.white, size: 28)
+                            : _buildBurgerIcon(),
+                        onTap: _toggleMenu,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(child: _buildSearchPill()),
-                const SizedBox(width: 8),
-                CompositedTransformTarget(
-                  link: _layerLink,
-                  child: _buildCircleButton(
-                    child: _isMenuOpen
-                        ? const Icon(Icons.close_rounded,
-                            color: Colors.white, size: 28)
-                        : _buildBurgerIcon(),
-                    onTap: _toggleMenu,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

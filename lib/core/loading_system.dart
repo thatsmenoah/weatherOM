@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/time_utils.dart';
 
 //  СИСТЕМА ЗАГРУЗКИ 
 
@@ -96,12 +97,11 @@ class UpdateTimeIndicator extends StatelessWidget {
     required this.isFromCache,
   });
   
-  String _formatTime() {
+  String _formatTime(BuildContext context) {
     if (updateTime == null) return 'Обновлено: никогда';
     
-    final hour = updateTime!.hour.toString().padLeft(2, '0');
-    final minute = updateTime!.minute.toString().padLeft(2, '0');
-    return 'Обновлено в $hour:$minute';
+    final formattedTime = TimeUtils.formatTime(context, updateTime!);
+    return 'Обновлено в $formattedTime';
   }
   
   @override
@@ -110,10 +110,10 @@ class UpdateTimeIndicator extends StatelessWidget {
     final IconData displayIcon;
     
     if (isFromCache) {
-      displayText = 'Кеш-данные • ${_formatTime()}';
+      displayText = 'Кеш-данные • ${_formatTime(context)}';
       displayIcon = Icons.storage;
     } else {
-      displayText = _formatTime();
+      displayText = _formatTime(context);
       displayIcon = Icons.update;
     }
     
@@ -150,14 +150,42 @@ class UpdateTimeIndicator extends StatelessWidget {
   }
 }
 
-/// Кружок загрузки (поверх контента)
-class LoadingOverlay extends StatelessWidget {
-  const LoadingOverlay({super.key});
+/// ТОЛЬКО КРУЖОЧЕК - БЕЗ СЛОВА, БЕЗ СЕРОГО ФОНА
+class TopLoadingIndicator extends StatelessWidget {
+  final bool isVisible;
+  
+  const TopLoadingIndicator({
+    super.key,
+    required this.isVisible,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(color: Colors.white),
+    return AnimatedOpacity(
+      opacity: isVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        height: 50,
+        width: double.infinity,
+        color: Colors.transparent, // Прозрачный фон
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.6), // Тёмный фон
+              shape: BoxShape.circle, // Круглая форма
+            ),
+            child: const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -58,9 +58,11 @@ class SettingsConst {
   static const Duration durSectionFade3 = Duration(milliseconds: 600);
 
   // ПРОЧЕЕ
+  /* // ← ЗАКОММЕНТИРОВАНО (связано с Telegram)
   static const String telegramUsername = 'durovfm';
-  static const String copyrightText = '© 2026 Weather App';
-  static const String appVersion = 'Версия 0.8.7-patch';
+  // КОНЕЦ */
+  static const String copyrightText = '© 2026 Weather Cloud';
+  static const String appVersion = 'Версия 1.0.0r';
 
   // ПЕРЕИСПОЛЬЗУЕМЫЕ БОРДЕРЫ
   static Border get defaultBorder => Border.all(color: Colors.white.withValues(alpha: 0.1));
@@ -69,12 +71,24 @@ class SettingsConst {
   static BorderSide get defaultBorderSide => BorderSide(color: Colors.white.withValues(alpha: 0.1));
 
   // CHANGELOG
-static const String changelogCurrentVersion = '0.8.7-patch';
+static const String changelogCurrentVersion = '0.9.0 Beta';
 
 static const String changelogText = ''
+    // 0.9.0 Beta
+    '0.9.0 Beta\n'
+    'Первое публичное бета-тестирование.\n\n'
+    '- Навигация: теперь панель управления скрывается при прокрутке вниз и плавно возвращается при прокрутке вверх.\n\n'
+    '- Удалена иконка мусора с кнопки "Очистить данные".\n\n'
+    '- Исправлен огромный отступ снизу на главном экране.\n\n'
+    '- Блок "Помощь и обратная связь" временно отключен.\n\n'
+    '- Блок "Графики" закомментирован для подготовки к обновлению.\n\n'
+    '- Оптимизировано поведение компактного хедера при скролле.\n\n'
+    '- Улучшена общая стабильность и плавность анимаций.\n\n'
+
     // 0.8.7-патч
     '0.8.7-patch\n'
     'Стабилизационный патч.\n\n'
+    '- Добавлен шанс дождя в карточки "Почасовой прогноз" и "Пятидневный прогноз"\n\n'
     '- Улучшено поведение страницы "Activity": обновление данных стало стабильнее и предсказуемее.\n\n'
     '- Исправлена проблема с бесконечным индикатором загрузки при выходе со страницы.\n\n'
     '- Улучшена синхронизация локального кэша и состояния интерфейса.\n\n'

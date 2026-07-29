@@ -50,7 +50,7 @@ class WeatherConst {
    
   // ТИПОГРАФИКА
    
-  static const TextStyle tsCityName = TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: textPrimary);
+  static const TextStyle tsCityName = TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textPrimary);
   static const TextStyle tsDateLabel = TextStyle(fontSize: 13, color: textSecondary, fontWeight: FontWeight.w600);
   static const TextStyle tsHeroTemp = TextStyle(fontSize: 72, fontWeight: FontWeight.w800, color: textPrimary, shadows: [Shadow(blurRadius: 12, color: Colors.black26)]);
   static const TextStyle tsDescription = TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary);
