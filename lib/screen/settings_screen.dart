@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../core/storage_info_system.dart';
 import '../core/data_system.dart';
 import '../constants/settings_const.dart';
+import '../core/locale_manager.dart';
 
-//  ЭКРАН НАСТРОЕК 
+//  ЭКРАН НАСТРОЕК
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -18,22 +19,30 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final DataSystem _dataSystem = DataSystem();
   final StorageInfoSystem _storageSystem = StorageInfoSystem();
+  final LocaleManager _localeManager = LocaleManager();
 
   int _dataSize = 0;
   bool _isLoading = true;
   bool _isClearing = false;
-  
-  // Переменная для выбранного языка
-  String _selectedLanguage = 'Русский';
+  bool _isInit = false;
+
+  String _selectedLanguage = 'Английский';
 
   @override
   void initState() {
     super.initState();
-    _initDataAndLoadSize();
+    _init();
   }
 
-  Future<void> _initDataAndLoadSize() async {
+  Future<void> _init() async {
+    await _localeManager.init();
     await _dataSystem.init();
+
+    setState(() {
+      _selectedLanguage = _localeManager.currentLocale;
+      _isInit = true;
+    });
+
     await _loadDataSize();
   }
 
@@ -62,10 +71,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await _storageSystem.clearAllCache(_dataSystem);
       await _loadDataSize();
-      setState(() => _isClearing = false);
+      if (mounted) {
+        setState(() => _isClearing = false);
+      }
     } catch (e) {
       debugPrint('Ошибка в _clearData: $e');
-      setState(() => _isClearing = false);
+      if (mounted) {
+        setState(() => _isClearing = false);
+      }
     }
   }
 
@@ -100,8 +113,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _changeLanguage(String newLocale) async {
+    if (newLocale == _selectedLanguage) return;
+
+    await _localeManager.setLocale(newLocale);
+
+    setState(() {
+      _selectedLanguage = newLocale;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_isInit) {
+      return const Scaffold(
+        backgroundColor: SettingsConst.bgScreen,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
@@ -118,9 +148,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLanguageSection(),
-                        const SizedBox(height: 24),
                         _buildDataSection(),
+                        const SizedBox(height: 24),
+                        _buildLanguageSection(),
                         const SizedBox(height: 24),
                         /* // СЕКЦИЯ "ПОМОЩЬ И ОБРАТНАЯ СВЯЗЬ" ЗАКОММЕНТИРОВАНА
                         _buildReportSection(),
@@ -154,20 +184,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               height: SettingsConst.headerButtonSize,
               decoration: BoxDecoration(
                 color: SettingsConst.bgButton,
-                borderRadius: BorderRadius.circular(SettingsConst.radiusHeaderButton),
+                borderRadius: BorderRadius.circular(
+                  SettingsConst.radiusHeaderButton,
+                ),
                 border: SettingsConst.defaultBorder,
               ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, color: SettingsConst.textPrimary, size: SettingsConst.headerIconSize),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: SettingsConst.textPrimary,
+                size: SettingsConst.headerIconSize,
+              ),
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(child: Text('Настройки', style: SettingsConst.tsHeaderTitle)),
+          Expanded(
+            child: Text(
+              _localeManager.getText('settings'),
+              style: SettingsConst.tsHeaderTitle,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // НОВЫЙ БЛОК - ВЫБОР ЯЗЫКА
+  // БЛОК - ВЫБОР ЯЗЫКА
   Widget _buildLanguageSection() {
     return FadeInWrapper(
       duration: const Duration(milliseconds: 300),
@@ -181,7 +222,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(SettingsConst.radiusCard),
           child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: SettingsConst.blurGlass, sigmaY: SettingsConst.blurGlass),
+            filter: ui.ImageFilter.blur(
+              sigmaX: SettingsConst.blurGlass,
+              sigmaY: SettingsConst.blurGlass,
+            ),
             child: Padding(
               padding: SettingsConst.padCardContent,
               child: Row(
@@ -191,23 +235,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: SettingsConst.sectionIconBoxSize,
                     decoration: BoxDecoration(
                       color: SettingsConst.bgIconBox,
-                      borderRadius: BorderRadius.circular(SettingsConst.radiusIconBox),
-                      border: Border.all(color: SettingsConst.accentBlue.withValues(alpha: 0.2)),
+                      borderRadius: BorderRadius.circular(
+                        SettingsConst.radiusIconBox,
+                      ),
+                      border: Border.all(
+                        color: SettingsConst.accentBlue.withValues(alpha: 0.2),
+                      ),
                     ),
-                    child: const Icon(Icons.language_rounded, color: SettingsConst.accentBlue, size: SettingsConst.sectionIconSize),
+                    child: const Icon(
+                      Icons.language_rounded,
+                      color: SettingsConst.accentBlue,
+                      size: SettingsConst.sectionIconSize,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Язык',
+                      _localeManager.getText('language'),
                       style: SettingsConst.tsSectionTitle,
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: SettingsConst.bgMenuButton,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                       border: SettingsConst.subtleBorder06,
                     ),
                     child: DropdownButtonHideUnderline(
@@ -226,19 +281,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         onChanged: (String? newValue) {
                           if (newValue != null) {
-                            setState(() {
-                              _selectedLanguage = newValue;
-                            });
+                            _changeLanguage(newValue);
                           }
                         },
                         items: const [
                           DropdownMenuItem(
                             value: 'Русский',
-                            child: Text('Русский'),
+                            child: Text('Russian'),
                           ),
                           DropdownMenuItem(
                             value: 'Английский',
-                            child: Text('Английский'),
+                            child: Text('English'),
                           ),
                         ],
                       ),
@@ -266,7 +319,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(SettingsConst.radiusCard),
           child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: SettingsConst.blurGlass, sigmaY: SettingsConst.blurGlass),
+            filter: ui.ImageFilter.blur(
+              sigmaX: SettingsConst.blurGlass,
+              sigmaY: SettingsConst.blurGlass,
+            ),
             child: Padding(
               padding: SettingsConst.padCardContent,
               child: Column(
@@ -279,19 +335,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         height: SettingsConst.sectionIconBoxSize,
                         decoration: BoxDecoration(
                           color: SettingsConst.bgIconBox,
-                          borderRadius: BorderRadius.circular(SettingsConst.radiusIconBox),
-                          border: Border.all(color: SettingsConst.accentBlue.withValues(alpha: 0.2)),
+                          borderRadius: BorderRadius.circular(
+                            SettingsConst.radiusIconBox,
+                          ),
+                          border: Border.all(
+                            color: SettingsConst.accentBlue.withValues(
+                              alpha: 0.2,
+                            ),
+                          ),
                         ),
-                        child: const Icon(Icons.storage_rounded, color: SettingsConst.accentBlue, size: SettingsConst.sectionIconSize),
+                        child: const Icon(
+                          Icons.storage_rounded,
+                          color: SettingsConst.accentBlue,
+                          size: SettingsConst.sectionIconSize,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Хранилище', style: SettingsConst.tsSectionTitle),
-                            SizedBox(height: 2),
-                            Text('Использование памяти устройства', style: SettingsConst.tsSectionSubtitle),
+                            Text(
+                              _localeManager.getText('storage'),
+                              style: SettingsConst.tsSectionTitle,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _localeManager.getText('storage_subtitle'),
+                              style: SettingsConst.tsSectionSubtitle,
+                            ),
                           ],
                         ),
                       ),
@@ -301,7 +373,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoading || _isClearing || _dataSize == 0 ? null : _clearData,
+                      onPressed: _isLoading || _isClearing || _dataSize == 0
+                          ? null
+                          : _clearData,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: SettingsConst.bgButton,
                         foregroundColor: SettingsConst.textPrimary,
@@ -309,7 +383,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         disabledForegroundColor: SettingsConst.textDim,
                         padding: SettingsConst.padButton,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(SettingsConst.radiusButton),
+                          borderRadius: BorderRadius.circular(
+                            SettingsConst.radiusButton,
+                          ),
                           side: SettingsConst.defaultBorderSide,
                         ),
                         elevation: 0,
@@ -320,10 +396,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(SettingsConst.textPrimary),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  SettingsConst.textPrimary,
+                                ),
                               ),
                             )
-                          : const Text('Очистить данные', style: SettingsConst.tsButtonText),
+                          : Text(
+                              _localeManager.getText('clear_data'),
+                              style: SettingsConst.tsButtonText,
+                            ),
                     ),
                   ),
                 ],
@@ -409,7 +490,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(SettingsConst.radiusCard),
           child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: SettingsConst.blurGlass, sigmaY: SettingsConst.blurGlass),
+            filter: ui.ImageFilter.blur(
+              sigmaX: SettingsConst.blurGlass,
+              sigmaY: SettingsConst.blurGlass,
+            ),
             child: Padding(
               padding: SettingsConst.padCardContent,
               child: Column(
@@ -422,26 +506,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         height: SettingsConst.sectionIconBoxSize,
                         decoration: BoxDecoration(
                           color: SettingsConst.bgIconBox,
-                          borderRadius: BorderRadius.circular(SettingsConst.radiusIconBox),
+                          borderRadius: BorderRadius.circular(
+                            SettingsConst.radiusIconBox,
+                          ),
                           border: SettingsConst.defaultBorder,
                         ),
-                        child: const Icon(Icons.info_outline_rounded, color: SettingsConst.textPrimary, size: SettingsConst.sectionIconSize),
+                        child: const Icon(
+                          Icons.info_outline_rounded,
+                          color: SettingsConst.textPrimary,
+                          size: SettingsConst.sectionIconSize,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('О приложении', style: SettingsConst.tsSectionTitle),
-                            SizedBox(height: 2),
-                            Text(SettingsConst.appVersion, style: SettingsConst.tsSectionSubtitle),
+                            Text(
+                              _localeManager.getText('about_app'),
+                              style: SettingsConst.tsSectionTitle,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              SettingsConst.appVersion,
+                              style: SettingsConst.tsSectionSubtitle,
+                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Center(child: Text(SettingsConst.copyrightText, style: SettingsConst.tsCopyright)),
+                  Center(
+                    child: Text(
+                      _localeManager.getText('copyright'),
+                      style: SettingsConst.tsCopyright,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -457,13 +558,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       offsetY: 10,
       child: _buildMenuButton(
         icon: Icons.auto_awesome_rounded,
-        label: 'Что нового?',
+        label: _localeManager.getText('changelog'),
         onTap: _showChangelog,
       ),
     );
   }
 
-  Widget _buildMenuButton({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildMenuButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -478,10 +583,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Row(
             children: [
-              Icon(icon, color: SettingsConst.textPrimary, size: SettingsConst.menuIconSize),
+              Icon(
+                icon,
+                color: SettingsConst.textPrimary,
+                size: SettingsConst.menuIconSize,
+              ),
               const SizedBox(width: 12),
-              Expanded(child: Text(label, style: SettingsConst.tsMenuButtonText)),
-              Icon(Icons.arrow_forward_ios_rounded, color: SettingsConst.textDim, size: SettingsConst.menuArrowSize),
+              Expanded(
+                child: Text(label, style: SettingsConst.tsMenuButtonText),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: SettingsConst.textDim,
+                size: SettingsConst.menuArrowSize,
+              ),
             ],
           ),
         ),
@@ -490,7 +605,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-//  CHANGELOG SHEET 
+//  CHANGELOG SHEET
 
 class ChangelogSheet extends StatelessWidget {
   const ChangelogSheet({super.key});
@@ -528,9 +643,9 @@ class ChangelogSheet extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Text(
-                  'Что нового?',
-                  style: TextStyle(
+                Text(
+                  LocaleManager().getText('changelog'),
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -569,34 +684,36 @@ class ChangelogSheet extends StatelessWidget {
 
     for (final line in lines) {
       if (line.startsWith('0.8.') && line.length < 10) {
-        spans.add(TextSpan(
-          text: '$line\n',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            height: 1.6,
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.6,
+            ),
           ),
-        ));
+        );
       } else {
-        spans.add(TextSpan(
-          text: '$line\n',
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFFa0a0a0),
-            height: 1.6,
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFFa0a0a0),
+              height: 1.6,
+            ),
           ),
-        ));
+        );
       }
     }
 
-    return RichText(
-      text: TextSpan(children: spans),
-    );
+    return RichText(text: TextSpan(children: spans));
   }
 }
 
-//  ВСПОМОГАТЕЛЬНЫЙ ВИДЖЕТ 
+//  ВСПОМОГАТЕЛЬНЫЙ ВИДЖЕТ
 
 class FadeInWrapper extends StatelessWidget {
   final Widget child;
@@ -621,7 +738,10 @@ class FadeInWrapper extends StatelessWidget {
       builder: (context, value, child) {
         return Opacity(
           opacity: value,
-          child: Transform.translate(offset: Offset(0, offsetY * (1 - value)), child: child),
+          child: Transform.translate(
+            offset: Offset(0, offsetY * (1 - value)),
+            child: child,
+          ),
         );
       },
       child: child,

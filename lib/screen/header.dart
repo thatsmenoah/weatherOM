@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import '../utils/weather_utils.dart';
 import '../utils/time_utils.dart';
+import '../core/locale_manager.dart';
 
 class CompactWeatherHeader extends StatelessWidget {
-  final String cityName;           // ← ТОЛЬКО РАЙОН
+  final String cityName;
   final int temp;
   final int feelsLike;
   final String iconCode;
   final String description;
   final DateTime now;
-  final bool isUsingFallback;
 
   const CompactWeatherHeader({
     super.key,
@@ -19,12 +19,21 @@ class CompactWeatherHeader extends StatelessWidget {
     required this.iconCode,
     required this.description,
     required this.now,
-    this.isUsingFallback = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    final localeManager = LocaleManager();
+    
+    final weekdays = [
+      localeManager.getText('mon_short'),
+      localeManager.getText('tue_short'),
+      localeManager.getText('wed_short'),
+      localeManager.getText('thu_short'),
+      localeManager.getText('fri_short'),
+      localeManager.getText('sat_short'),
+      localeManager.getText('sun_short'),
+    ];
     final weekday = weekdays[now.weekday - 1];
     final time = TimeUtils.formatTime(context, now);
 
@@ -48,7 +57,7 @@ class CompactWeatherHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      cityName,  // ← ТОЛЬКО РАЙОН
+                      cityName,
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
@@ -58,7 +67,6 @@ class CompactWeatherHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    // ❌ ГОРОД УБРАН
                   ],
                 ),
               ),

@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- ДОБАВИТЬ ЭТУ СТРОКУ
 import 'dart:ui' as ui;
 import 'screen/weather_screen.dart';
 import 'screen/another_screen.dart';
 import 'screen/settings_screen.dart';
-import 'screen/favorites_screen.dart';
-// import 'screen/charts_sheet.dart';  // ← закомментирован импорт графиков
+import 'screen/search_screen.dart';
+import 'core/locale_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Предзагрузка избранного в память — чтобы экран открывался мгновенно
-  await FavoritesStorage.preload();
+  // ========== ЗАГРУЖАЕМ .env ==========
+  await dotenv.load(fileName: ".env");
+  // ====================================
+
+  await LocaleManager().init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -30,7 +34,7 @@ class WeatherApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Weather Air',
+      title: 'Weather Cloud',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: Colors.transparent,
         primaryColor: Colors.white,
@@ -54,21 +58,20 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   int _currentIndex = 0;
   bool _isMenuOpen = false;
-  bool _showNav = true; // ← true = навигация видна, false = скрыта
-  
+  bool _showNav = true;
+
   late AnimationController _navAnimationController;
   late AnimationController _menuAnimationController;
   late AnimationController _navSlideController;
-  
+
   late Animation<double> _navAnimation;
   late Animation<double> _menuScaleAnimation;
   late Animation<double> _menuFadeAnimation;
   late Animation<Offset> _menuSlideAnimation;
   late Animation<Offset> _navSlideAnimation;
 
-  // ← для отслеживания направления прокрутки
   double _lastScrollOffset = 0.0;
-  static const double _scrollThreshold = 20.0; // минимальное изменение для срабатывания
+  static const double _scrollThreshold = 20.0;
 
   final LayerLink _layerLink = LayerLink();
   late final List<Widget> _screens;
@@ -79,7 +82,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
     _screens = [
       WeatherScreen(key: weatherScreenKey),
-      const ActivityScreen(),
       const ActivityScreen(),
     ];
 
@@ -113,20 +115,18 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       curve: Curves.easeOutCubic,
     ));
 
-    // НОВОЕ: контроллер для слайда навигации
     _navSlideController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     _navSlideAnimation = Tween<Offset>(
       begin: Offset.zero,
-      end: const Offset(0, 0.20), // смещение вниз на 20%
+      end: const Offset(0, 0.20),
     ).animate(CurvedAnimation(
       parent: _navSlideController,
       curve: Curves.easeInOut,
     ));
-    
-    // Изначально навигация видна
+
     _navSlideController.value = 0.0;
     _showNav = true;
   }
@@ -160,17 +160,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _onMenuItemTap(VoidCallback action) {
-    _closeMenu();
-    action();
-  }
-
   void _onNavItemTap(int index) {
     HapticFeedback.mediumImpact();
-
+    
     if (index == 1) {
-      _closeMenu();
-      _navigateToFavorites();
+      _navigateToSearch();
       return;
     }
 
@@ -181,18 +175,24 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     });
   }
 
-  // НОВОЕ: обновление позиции навигации по направлению прокрутки
   void _updateNavPosition(double scrollOffset, bool isScrollingDown) {
-    // Игнорируем очень маленькие смещения
     if ((scrollOffset - _lastScrollOffset).abs() < _scrollThreshold) return;
-    
+
+    if (_currentIndex != 0) {
+      if (_showNav) {
+        setState(() {
+          _showNav = false;
+          _navSlideController.forward();
+        });
+      }
+      return;
+    }
+
     setState(() {
       if (isScrollingDown && _showNav) {
-        // Прокрутка вниз → прячем навигацию
         _showNav = false;
         _navSlideController.forward();
       } else if (!isScrollingDown && !_showNav) {
-        // Прокрутка вверх → показываем навигацию
         _showNav = true;
         _navSlideController.reverse();
       }
@@ -200,7 +200,20 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     });
   }
 
-  // == НАВИГАЦИЯ С ОТЛОЖЕННЫМ СТАРТОМ ==
+  void _navigateToSearch() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (context) => SearchScreen(
+        onLocationSelected: (lat, lon, name) {
+          weatherScreenKey.currentState?.setLocation(lat, lon, name);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
 
   void _navigateToSettings() {
     Navigator.push(
@@ -211,12 +224,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
-
           final curvedAnimation = CurvedAnimation(
             parent: animation,
             curve: const Interval(0.05, 1.0, curve: Curves.easeOutCubic),
           );
-
           return SlideTransition(
             position: Tween<Offset>(begin: begin, end: end).animate(curvedAnimation),
             child: child,
@@ -227,56 +238,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       ),
     );
   }
-
-  void _navigateToFavorites() {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FavoritesScreen(
-          onLocationSelected: (location) {
-            weatherScreenKey.currentState
-                ?.setLocation(location.lat, location.lon, location.name);
-          },
-        ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-
-          final curvedAnimation = CurvedAnimation(
-            parent: animation,
-            curve: const Interval(0.05, 1.0, curve: Curves.easeOutCubic),
-          );
-
-          return SlideTransition(
-            position: Tween<Offset>(begin: begin, end: end).animate(curvedAnimation),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 370),
-        reverseTransitionDuration: const Duration(milliseconds: 350),
-      ),
-    );
-  }
-
-  // ====
-
-  /* // ← БЛОК ГРАФИКОВ ЗАКОММЕНТИРОВАН
-  void _showChartsSheet() {
-    final weatherState = weatherScreenKey.currentState;
-    if (weatherState?.weatherData == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (context) => ChartsSheet(
-        weatherData: weatherState!.weatherData!,
-        forecastData: weatherState.forecastData,
-      ),
-    );
-  }
-  // КОНЕЦ БЛОКА ГРАФИКОВ */
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +246,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       extendBody: true,
       body: Stack(
         children: [
-          // Оборачиваем ВСЕ экраны в слушатель прокрутки
           NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification) {
@@ -301,16 +261,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // ======== OFFSTAGE ПРЕДЗАГРУЗКА (прогрев Impeller) ========
           const Offstage(
             offstage: true,
             child: SettingsScreen(),
           ),
-          const Offstage(
-            offstage: true,
-            child: FavoritesScreen(onLocationSelected: null),
-          ),
-          // ========
 
           _buildBottomNav(),
           if (_isMenuOpen) _buildMenuOverlay(),
@@ -396,23 +350,15 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                 children: [
                   _buildMenuItem(
                     icon: Icons.explore,
-                    label: 'Другое',
+                    label: LocaleManager().getText('other'),
                     onTap: () => _onMenuItemTap(() {
-                      setState(() => _currentIndex = 2);
+                      setState(() => _currentIndex = 1);
                     }),
                   ),
                   _buildDivider(),
-                  /* // ← ПУНКТ "ГРАФИКИ" ЗАКОММЕНТИРОВАН
-                  _buildMenuItem(
-                    icon: Icons.show_chart_rounded,
-                    label: 'Графики',
-                    onTap: () => _onMenuItemTap(() => _showChartsSheet()),
-                  ),
-                  _buildDivider(),
-                  // КОНЕЦ ПУНКТА ГРАФИКИ */
                   _buildMenuItem(
                     icon: Icons.settings_outlined,
-                    label: 'Настройки',
+                    label: LocaleManager().getText('settings'),
                     onTap: () => _onMenuItemTap(() => _navigateToSettings()),
                   ),
                 ],
@@ -469,7 +415,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  //  НИЖНЯЯ ПАНЕЛЬ с анимацией слайда
+  void _onMenuItemTap(VoidCallback action) {
+    _closeMenu();
+    action();
+  }
+
+  // ========== НИЖНЯЯ НАВИГАЦИЯ ==========
   Widget _buildBottomNav() {
     return Positioned(
       bottom: MediaQuery.of(context).padding.bottom + 12,
@@ -478,7 +429,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       child: AnimatedBuilder(
         animation: _navSlideAnimation,
         builder: (context, child) {
-          // Смещение: максимум 100px вниз (0.20 * 500 = 100px)
           final double offsetY = _navSlideAnimation.value.dy * 500;
           return Transform.translate(
             offset: Offset(0, offsetY),
@@ -488,14 +438,25 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
+                    // Кнопка "Назад"
                     _buildCircleButton(
                       child: const Icon(Icons.arrow_back_rounded,
                           color: Colors.white, size: 28),
                       onTap: () => _onNavItemTap(0),
                     ),
+                    
+                    const Spacer(), // Раздвигаем кнопки
+                    
+                    // Кнопка "Поиск" (круглая)
+                    _buildCircleButton(
+                      child: const Icon(Icons.search_rounded,
+                          color: Colors.white, size: 28),
+                      onTap: () => _onNavItemTap(1),
+                    ),
+                    
                     const SizedBox(width: 8),
-                    Expanded(child: _buildSearchPill()),
-                    const SizedBox(width: 8),
+                    
+                    // Кнопка "Меню"
                     CompositedTransformTarget(
                       link: _layerLink,
                       child: _buildCircleButton(
@@ -515,6 +476,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       ),
     );
   }
+  // =====================================
 
   Widget _buildBurgerIcon() {
     return SizedBox(
@@ -601,59 +563,4 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       ),
     );
   }
-
-  Widget _buildSearchPill() {
-    return GestureDetector(
-      onTap: () => _onNavItemTap(1),
-      child: Container(
-        height: 64,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(32),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.12),
-              Colors.white.withValues(alpha: 0.03),
-              Colors.black.withValues(alpha: 0.35),
-            ],
-            stops: const [0.0, 0.5, 1.0],
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.15),
-            width: 0.8,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.white.withValues(alpha: 0.08),
-              blurRadius: 0,
-              spreadRadius: -1,
-              offset: const Offset(0, 1),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search_rounded, color: Colors.white70, size: 30),
-            const SizedBox(width: 12),
-            Text(
-              'Поиск',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 20,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
-// хорошая работа сер!

@@ -1,197 +1,351 @@
 import 'package:flutter/material.dart';
-import '../constants/weather_const.dart';
+import '../core/locale_manager.dart';
 
 class WeatherUtils {
-  //  СУЩЕСТВУЮЩИЕ МЕТОДЫ 
+  // ==================== ФОРМАТИРОВАНИЕ ДАТЫ ====================
 
-  // Форматирование даты
-  static String formatDate(DateTime date) {
-    final months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-    final weekdays = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
+  static String formatDate(DateTime date, LocaleManager localeManager) {
+    final months = [
+      localeManager.getText('january'),
+      localeManager.getText('february'),
+      localeManager.getText('march'),
+      localeManager.getText('april'),
+      localeManager.getText('may'),
+      localeManager.getText('june'),
+      localeManager.getText('july'),
+      localeManager.getText('august'),
+      localeManager.getText('september'),
+      localeManager.getText('october'),
+      localeManager.getText('november'),
+      localeManager.getText('december'),
+    ];
+    final weekdays = [
+      localeManager.getText('monday'),
+      localeManager.getText('tuesday'),
+      localeManager.getText('wednesday'),
+      localeManager.getText('thursday'),
+      localeManager.getText('friday'),
+      localeManager.getText('saturday'),
+      localeManager.getText('sunday'),
+    ];
     return '${date.day} ${months[date.month - 1]}, ${weekdays[date.weekday - 1]}';
   }
 
-  // Направление ветра
-  static String getWindDirection(int degrees) {
-    List<String> directions = ['Север', 'С-В', 'Восток', 'Ю-В', 'Юг', 'Ю-З', 'Запад', 'С-З'];
+  // ==================== НАПРАВЛЕНИЕ ВЕТРА ====================
+
+  static String getWindDirection(int degrees, LocaleManager localeManager) {
+    List<String> directions = [
+      localeManager.getText('n'),
+      localeManager.getText('ne'),
+      localeManager.getText('e'),
+      localeManager.getText('se'),
+      localeManager.getText('s'),
+      localeManager.getText('sw'),
+      localeManager.getText('w'),
+      localeManager.getText('nw'),
+    ];
     int index = ((degrees + 22) ~/ 45) % 8;
     return directions[index];
   }
 
-  // Текст качества воздуха (по AQI)
-  static String getAirQualityText(int aqi) {
-    switch(aqi) {
-      case 1: return 'Отличное';
-      case 2: return 'Хорошое';
-      case 3: return 'Умеренное';
-      case 4: return 'Плохое';
-      case 5: return 'Очень плохое';
-      default: return 'Нет данных';
+  // ==================== СТРЕЛКА НАПРАВЛЕНИЯ ВЕТРА ====================
+
+  /// Возвращает виджет-стрелку, указывающую направление ветра
+  /// degrees - направление ветра в градусах (0° = Север)
+  /// size - размер иконки
+  /// color - цвет иконки
+  static Widget getWindArrow(double degrees, {double size = 16, Color? color}) {
+    // Поворачиваем стрелку так, чтобы она указывала КУДА дует ветер
+    // В метеорологии: 0° = Северный ветер (дует С СЕВЕРА)
+    // Для отображения направления (КУДА) - разворачиваем на 180°
+    final rotation = (degrees - 180) * 3.14159 / 180;
+
+    return Transform.rotate(
+      angle: rotation,
+      child: Icon(
+        Icons.navigation, // <--- ЗАМЕНИЛИ ИКОНКУ НА ЭТУ
+        size: size,
+        color: color ?? Colors.grey.withValues(alpha: 0.8),
+      ),
+    );
+  }
+
+  /// Возвращает угол поворота для стрелки (в радианах)
+  static double getWindArrowRotation(double degrees) {
+    return (degrees - 180) * 3.14159 / 180;
+  }
+
+  /// Возвращает иконку стрелки в зависимости от направления
+  static IconData getWindArrowIcon(double degrees) {
+    return Icons.navigation;
+  }
+
+  /// Возвращает символ стрелки для направления ветра
+  static String getWindArrowSymbol(double degrees) {
+    // Нормализуем угол
+    degrees = degrees % 360;
+    if (degrees < 0) degrees += 360;
+
+    if (degrees >= 337.5 || degrees < 22.5) return '↑'; // Север
+    if (degrees >= 22.5 && degrees < 67.5) return '↗'; // Северо-восток
+    if (degrees >= 67.5 && degrees < 112.5) return '→'; // Восток
+    if (degrees >= 112.5 && degrees < 157.5) return '↘'; // Юго-восток
+    if (degrees >= 157.5 && degrees < 202.5) return '↓'; // Юг
+    if (degrees >= 202.5 && degrees < 247.5) return '↙'; // Юго-запад
+    if (degrees >= 247.5 && degrees < 292.5) return '←'; // Запад
+    if (degrees >= 292.5 && degrees < 337.5) return '↖'; // Северо-запад
+    return '→';
+  }
+
+  /// Возвращает текстовое описание направления ветра со стрелкой
+  static String getWindDirectionWithArrow(
+    int degrees,
+    LocaleManager localeManager,
+  ) {
+    final direction = getWindDirection(degrees, localeManager);
+    final arrow = getWindArrowSymbol(degrees.toDouble());
+    return '$direction $arrow';
+  }
+
+  // ==================== КАЧЕСТВО ВОЗДУХА ====================
+
+  static String getAirQualityText(int aqi, LocaleManager localeManager) {
+    switch (aqi) {
+      case 1:
+        return localeManager.getText('air_excellent');
+      case 2:
+        return localeManager.getText('air_good');
+      case 3:
+        return localeManager.getText('air_moderate');
+      case 4:
+        return localeManager.getText('air_poor');
+      case 5:
+        return localeManager.getText('air_very_poor');
+      default:
+        return localeManager.getText('no_data');
     }
   }
 
-  // Цвет качества воздуха (по AQI)
   static Color getAirQualityColor(int aqi) {
     return Colors.white;
   }
 
-  // Короткое описание погоды
-  static String getShortWeatherDescription(String iconCode) {
-    switch(iconCode) {
-      case '01d': return 'Ясно';
-      case '01n': return 'Ясно';
-      case '02d': return 'Облачно';
-      case '02n': return 'Облачно';
-      case '03d': return 'Облачно';
-      case '03n': return 'Облачно';
-      case '04d': return 'Пасмурно';
-      case '04n': return 'Пасмурно';
-      case '09d': return 'Дождь';
-      case '09n': return 'Дождь';
-      case '10d': return 'Дождь';
-      case '10n': return 'Дождь';
-      case '11d': return 'Гроза';
-      case '11n': return 'Гроза';
-      case '13d': return 'Снег';
-      case '13n': return 'Снег';
-      case '50d': return 'Туман';
-      case '50n': return 'Туман';
-      default: return 'Ясно';
+  // ==================== КОРОТКОЕ ОПИСАНИЕ ПОГОДЫ ====================
+
+  static String getShortWeatherDescription(
+    String iconCode,
+    LocaleManager localeManager,
+  ) {
+    switch (iconCode) {
+      case '01d':
+        return localeManager.getText('desc_clear');
+      case '01n':
+        return localeManager.getText('desc_clear');
+      case '02d':
+        return localeManager.getText('desc_cloudy');
+      case '02n':
+        return localeManager.getText('desc_cloudy');
+      case '03d':
+        return localeManager.getText('desc_cloudy');
+      case '03n':
+        return localeManager.getText('desc_cloudy');
+      case '04d':
+        return localeManager.getText('desc_overcast');
+      case '04n':
+        return localeManager.getText('desc_overcast');
+      case '09d':
+        return localeManager.getText('desc_rain');
+      case '09n':
+        return localeManager.getText('desc_rain');
+      case '10d':
+        return localeManager.getText('desc_rain');
+      case '10n':
+        return localeManager.getText('desc_rain');
+      case '11d':
+        return localeManager.getText('desc_thunderstorm');
+      case '11n':
+        return localeManager.getText('desc_thunderstorm');
+      case '13d':
+        return localeManager.getText('desc_snow');
+      case '13n':
+        return localeManager.getText('desc_snow');
+      case '50d':
+        return localeManager.getText('desc_fog');
+      case '50n':
+        return localeManager.getText('desc_fog');
+      default:
+        return localeManager.getText('desc_clear');
     }
   }
 
-  // Иконка погоды
+  // ==================== ИКОНКА ПОГОДЫ ====================
+
   static IconData getWeatherIcon(String iconCode) {
-    switch(iconCode) {
-      case '01d': return Icons.wb_sunny;
-      case '01n': return Icons.nightlight_round;
-      case '02d': return Icons.wb_cloudy;
-      case '02n': return Icons.nightlight_round;
-      case '03d': return Icons.cloud;
-      case '03n': return Icons.cloud;
-      case '04d': return Icons.cloud;
-      case '04n': return Icons.cloud;
-      case '09d': return Icons.grain;
-      case '09n': return Icons.grain;
-      case '10d': return Icons.beach_access;
-      case '10n': return Icons.beach_access;
-      case '11d': return Icons.flash_on;
-      case '11n': return Icons.flash_on;
-      case '13d': return Icons.ac_unit;
-      case '13n': return Icons.ac_unit;
-      case '50d': return Icons.foggy;
-      case '50n': return Icons.foggy;
-      default: return Icons.wb_sunny;
+    switch (iconCode) {
+      case '01d':
+        return Icons.wb_sunny;
+      case '01n':
+        return Icons.nightlight_round;
+      case '02d':
+        return Icons.wb_cloudy;
+      case '02n':
+        return Icons.nightlight_round;
+      case '03d':
+        return Icons.cloud;
+      case '03n':
+        return Icons.cloud;
+      case '04d':
+        return Icons.cloud;
+      case '04n':
+        return Icons.cloud;
+      case '09d':
+        return Icons.grain;
+      case '09n':
+        return Icons.grain;
+      case '10d':
+        return Icons.beach_access;
+      case '10n':
+        return Icons.beach_access;
+      case '11d':
+        return Icons.flash_on;
+      case '11n':
+        return Icons.flash_on;
+      case '13d':
+        return Icons.ac_unit;
+      case '13n':
+        return Icons.ac_unit;
+      case '50d':
+        return Icons.foggy;
+      case '50n':
+        return Icons.foggy;
+      default:
+        return Icons.wb_sunny;
     }
   }
 
-  // Конвертация давления из гПа в мм рт. ст.
+  // ==================== КОНВЕРТАЦИЯ ДАВЛЕНИЯ ====================
+
   static double convertPressureToMmhg(double pressureHpa) {
     return pressureHpa * 0.750062;
   }
 
-  //  НОВЫЕ UI-МЕТОДЫ 
+  // ==================== UI-МЕТОДЫ ====================
 
-  // Капитализация строки
   static String capitalize(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1);
   }
 
-  // Форматирование времени прогноза
-  static String formatForecastTime(DateTime time, bool isNow) {
-    return isNow ? 'Сейчас' : '${time.hour}:00';
+  static String formatForecastTime(
+    DateTime time,
+    bool isNow,
+    LocaleManager localeManager,
+  ) {
+    return isNow ? localeManager.getText('now') : '${time.hour}:00';
   }
 
-  // Получение дня недели
-  static String getWeekday(DateTime date) {
-    return WeatherConst.daysOfWeekFull[date.weekday % 7];
+  static String getWeekday(DateTime date, LocaleManager localeManager) {
+    final weekdays = [
+      localeManager.getText('sunday'),
+      localeManager.getText('monday'),
+      localeManager.getText('tuesday'),
+      localeManager.getText('wednesday'),
+      localeManager.getText('thursday'),
+      localeManager.getText('friday'),
+      localeManager.getText('saturday'),
+    ];
+    return weekdays[date.weekday % 7];
   }
 
-  // Форматирование температуры
   static String formatTemp(num temp) => '${temp.round()}°';
 
-  // Форматирование температуры с ощущением
-  static String formatTempWithFeelsLike(num temp, num feelsLike) {
-    return '${temp.round()}° (ощущается ${feelsLike.round()}°)';
+  static String formatTempWithFeelsLike(
+    num temp,
+    num feelsLike,
+    LocaleManager localeManager,
+  ) {
+    return '${temp.round()}° (${localeManager.getText('feels_like')} ${feelsLike.round()}°)';
   }
 
-  // Проверка важности совета
   static bool isTipImportant(Map<String, dynamic> tip) {
     return tip['type'] == 'rain' || tip['type'] == 'snow';
   }
 
-  // Получение метки для дня прогноза
-  static String getDailyForecastLabel(int index) {
-    switch(index) {
-      case 0: return 'Сегодня';
-      case 1: return 'Завтра';
-      default: return '';
+  static String getDailyForecastLabel(int index, LocaleManager localeManager) {
+    switch (index) {
+      case 0:
+        return localeManager.getText('today');
+      case 1:
+        return localeManager.getText('tomorrow');
+      default:
+        return '';
     }
   }
 
-  // Форматирование скорости ветра
-  static String formatWindSpeed(double speedMs) {
-    return '${(speedMs * 3.6).round()} км/ч';
+  // ============ ОБНОВЛЁННЫЕ МЕТОДЫ С ПЕРЕВОДОМ ЕДИНИЦ ============
+
+  static String formatWindSpeed(double speedMs, LocaleManager localeManager) {
+    return '${speedMs.toStringAsFixed(1)} ${localeManager.getText('ms')}';
   }
 
-  // Форматирование влажности
   static String formatHumidity(double humidity) {
     return '${humidity.round()}%';
   }
 
-  // Форматирование давления
-  static String formatPressure(double pressureHpa) {
-    return '${convertPressureToMmhg(pressureHpa).round()} мм';
+  static String formatPressure(
+    double pressureHpa,
+    LocaleManager localeManager,
+  ) {
+    return '${convertPressureToMmhg(pressureHpa).round()} ${localeManager.getText('mm')}';
   }
 
-  // Получение времени из строки (для прогноза)
   static String extractHourFromDateTime(String dtTxt) {
     final time = DateTime.parse(dtTxt);
     return '${time.hour}:00';
   }
 
-  //  МЕТОДЫ ДЛЯ АКТИВНОСТЕЙ 
+  // ==================== МЕТОДЫ ДЛЯ АКТИВНОСТЕЙ ====================
 
-  // Расчет оценки для активности
   static double calculateActivityScore(
     String activity,
     Map<String, dynamic>? weatherData,
     Map<String, dynamic>? airQualityData,
   ) {
     if (weatherData == null) return 5.0;
-    
+
     final temp = weatherData['main']['temp'].toDouble();
-    final windSpeed = (weatherData['wind']['speed'] * 3.6).toDouble(); // км/ч
+    final windSpeed = (weatherData['wind']['speed'] * 3.6).toDouble();
     final precipitation = _getPrecipitation(weatherData);
     final clouds = weatherData['clouds']['all'].toDouble();
-    
-    // Базовая погодная оценка (0-10)
-    double weatherScore = _calculateWeatherScore(temp, windSpeed, precipitation);
-    
-    // Оценка качества воздуха (0-10)
+
+    double weatherScore = _calculateWeatherScore(
+      temp,
+      windSpeed,
+      precipitation,
+    );
     final airScore = calculateAirQualityScore(airQualityData);
-    
-    // Итоговая оценка с весами для разных активностей
+
     double finalScore;
-    switch(activity) {
+    switch (activity) {
       case 'running':
         finalScore = weatherScore * 0.6 + airScore * 0.4;
         if (temp >= 15 && temp <= 20) finalScore += 0.5;
-        if (windSpeed > 15) finalScore -= 0.5;
+        if (windSpeed > 4) finalScore -= 0.5; // 15 км/ч ≈ 4 м/с
         break;
       case 'cycling':
         finalScore = weatherScore * 0.55 + airScore * 0.45;
-        if (windSpeed > 20) {
+        if (windSpeed > 5.5) {
+          // 20 км/ч ≈ 5.5 м/с
           finalScore -= 1.0;
-        } else if (windSpeed > 12) {
+        } else if (windSpeed > 3.3) {
+          // 12 км/ч ≈ 3.3 м/с
           finalScore -= 0.5;
         }
         break;
       case 'walking':
         finalScore = weatherScore * 0.7 + airScore * 0.3;
         if (clouds <= 30 && temp >= 10 && temp <= 25) finalScore += 0.5;
-        if (windSpeed < 5) finalScore += 0.5;
+        if (windSpeed < 1.4) finalScore += 0.5; // 5 км/ч ≈ 1.4 м/с
         break;
       case 'photography':
         finalScore = weatherScore * 0.85 + airScore * 0.15;
@@ -207,7 +361,6 @@ class WeatherUtils {
     return finalScore.clamp(0.0, 10.0);
   }
 
-  // Получение количества осадков
   static double _getPrecipitation(Map<String, dynamic> weatherData) {
     if (weatherData.containsKey('rain')) {
       final rain = weatherData['rain'];
@@ -224,11 +377,13 @@ class WeatherUtils {
     return 0.0;
   }
 
-  // Расчет погодной оценки
-  static double _calculateWeatherScore(double temp, double windSpeed, double precipitation) {
+  static double _calculateWeatherScore(
+    double temp,
+    double windSpeed,
+    double precipitation,
+  ) {
     double score = 5.0;
-    
-    // Оценка температуры
+
     if (temp >= 18 && temp <= 24) {
       score = 10.0;
     } else if (temp >= 15 && temp < 18) {
@@ -248,19 +403,21 @@ class WeatherUtils {
     } else if (temp > 32) {
       score = 2.0;
     }
-    
-    // Штраф за ветер
-    if (windSpeed > 25) {
+
+    if (windSpeed > 7) {
+      // 25 км/ч ≈ 7 м/с
       score -= 3.0;
-    } else if (windSpeed > 15) {
+    } else if (windSpeed > 4) {
+      // 15 км/ч ≈ 4 м/с
       score -= 2.0;
-    } else if (windSpeed > 10) {
+    } else if (windSpeed > 2.7) {
+      // 10 км/ч ≈ 2.7 м/с
       score -= 1.0;
-    } else if (windSpeed < 2) {
+    } else if (windSpeed < 0.5) {
+      // 2 км/ч ≈ 0.5 м/с
       score += 0.5;
     }
-    
-    // Штраф за осадки
+
     if (precipitation > 5) {
       score -= 4.0;
     } else if (precipitation > 2) {
@@ -270,20 +427,19 @@ class WeatherUtils {
     } else if (precipitation > 0) {
       score -= 0.5;
     }
-    
+
     return score.clamp(0.0, 10.0);
   }
 
-  // Расчет оценки качества воздуха
   static double calculateAirQualityScore(Map<String, dynamic>? airQualityData) {
     if (airQualityData == null || airQualityData['list'] == null) {
       return 7.0;
     }
-    
+
     final comp = airQualityData['list'][0]['components'];
     double totalScore = 0.0;
     int count = 0;
-    
+
     // PM2.5
     if (comp['pm2_5'] != null) {
       final pm25 = comp['pm2_5'].toDouble();
@@ -300,7 +456,7 @@ class WeatherUtils {
       }
       count++;
     }
-    
+
     // PM10
     if (comp['pm10'] != null) {
       final pm10 = comp['pm10'].toDouble();
@@ -315,20 +471,81 @@ class WeatherUtils {
       }
       count++;
     }
-    
-    return count > 0 ? totalScore / count : 7.0;
+
+    // CO (мг/м³)
+    if (comp['co'] != null) {
+      final co = comp['co'].toDouble() / 1000;
+      if (co <= 5) {
+        totalScore += 10.0;
+      } else if (co <= 10) {
+        totalScore += 7.0;
+      } else if (co <= 20) {
+        totalScore += 4.0;
+      } else {
+        totalScore += 1.0;
+      }
+      count++;
+    }
+
+    // NO2 (ppb)
+    if (comp['no2'] != null) {
+      final no2 = comp['no2'].toDouble();
+      if (no2 <= 20) {
+        totalScore += 10.0;
+      } else if (no2 <= 40) {
+        totalScore += 7.0;
+      } else if (no2 <= 80) {
+        totalScore += 4.0;
+      } else {
+        totalScore += 1.0;
+      }
+      count++;
+    }
+
+    // SO2 (ppb)
+    if (comp['so2'] != null) {
+      final so2 = comp['so2'].toDouble();
+      if (so2 <= 20) {
+        totalScore += 10.0;
+      } else if (so2 <= 50) {
+        totalScore += 7.0;
+      } else if (so2 <= 100) {
+        totalScore += 4.0;
+      } else {
+        totalScore += 1.0;
+      }
+      count++;
+    }
+
+    // O3 (ppb)
+    if (comp['o3'] != null) {
+      final o3 = comp['o3'].toDouble();
+      if (o3 <= 30) {
+        totalScore += 10.0;
+      } else if (o3 <= 60) {
+        totalScore += 7.0;
+      } else if (o3 <= 100) {
+        totalScore += 4.0;
+      } else {
+        totalScore += 1.0;
+      }
+      count++;
+    }
+
+    return count > 0 ? (totalScore / count).clamp(0.0, 10.0) : 7.0;
   }
 
-  // Текст качества воздуха по оценке
-  static String getAirQualityTextByScore(double score) {
-    if (score >= 8.5) return 'Отличное качество';
-    if (score >= 7.0) return 'Хорошее качество';
-    if (score >= 5.0) return 'Удовлетворительное';
-    if (score >= 3.0) return 'Плохое качество';
-    return 'Очень плохое качество';
+  static String getAirQualityTextByScore(
+    double score,
+    LocaleManager localeManager,
+  ) {
+    if (score >= 8.5) return localeManager.getText('air_excellent');
+    if (score >= 7.0) return localeManager.getText('air_good');
+    if (score >= 5.0) return localeManager.getText('air_moderate');
+    if (score >= 3.0) return localeManager.getText('air_poor');
+    return localeManager.getText('air_very_poor');
   }
-  
-  // Цвет качества воздуха по оценке
+
   static Color getAirQualityColorByScore(double score) {
     return Colors.white;
   }

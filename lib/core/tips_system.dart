@@ -1,41 +1,47 @@
 import 'package:flutter/material.dart';
+import '../core/locale_manager.dart';
+import '../utils/time_utils.dart';
 
-/// Система генерации советов на основе погодных данных
-/// Анализирует текущую погоду, прогноз и время суток
 class TipsSystem {
   
   Map<String, dynamic>? analyzeWeatherForTips(
     Map<String, dynamic>? weatherData, 
-    Map<String, dynamic>? forecastData
+    Map<String, dynamic>? forecastData,
+    BuildContext context,
   ) {
     if (weatherData == null) return null;
     
+    final localeManager = LocaleManager();
     final now = DateTime.now();
-    final sunrise = DateTime.fromMillisecondsSinceEpoch(weatherData['sys']['sunrise'] * 1000);
-    final sunset = DateTime.fromMillisecondsSinceEpoch(weatherData['sys']['sunset'] * 1000);
     
-    final timeToSunrise = sunrise.difference(now).inHours;
-    final timeToSunset = sunset.difference(now).inHours;
+    // ✅ БЕРЁМ ДАННЫЕ СОЛНЦА ИЗ weatherData['_extra'] (OM ФОРМАТ)
+    final sunrise = weatherData['_extra']?['sunrise'] as DateTime?;
+    final sunset = weatherData['_extra']?['sunset'] as DateTime?;
     
-    if (timeToSunrise >= 0 && timeToSunrise < 1) {
-      return _createSunriseTip(sunrise);
-    }
-    
-    if (timeToSunset >= 0 && timeToSunset < 1) {
-      return _createSunsetTip(sunset);
+    if (sunrise != null && sunset != null) {
+      final timeToSunrise = sunrise.difference(now).inHours;
+      final timeToSunset = sunset.difference(now).inHours;
+      
+      if (timeToSunrise >= 0 && timeToSunrise < 1) {
+        return _createSunriseTip(sunrise, localeManager, context);
+      }
+      
+      if (timeToSunset >= 0 && timeToSunset < 1) {
+        return _createSunsetTip(sunset, localeManager, context);
+      }
     }
     
     final nextHourData = _getWeatherForNextHour(forecastData);
     
     if (nextHourData != null && _willSnowInNextHour(nextHourData)) {
-      return _createSnowTip();
+      return _createSnowTip(localeManager);
     }
     
     if (nextHourData != null && _willRainInNextHour(nextHourData)) {
-      return _createRainTip(nextHourData);
+      return _createRainTip(nextHourData, localeManager);
     }
     
-    return _createWeatherTip(weatherData);
+    return _createWeatherTip(weatherData, localeManager);
   }
   
   Map<String, dynamic>? _getWeatherForNextHour(Map<String, dynamic>? forecastData) {
@@ -86,16 +92,16 @@ class TipsSystem {
     return 'evening';
   }
   
-  Map<String, dynamic> _createSnowTip() {
+  Map<String, dynamic> _createSnowTip(LocaleManager localeManager) {
     final messages = [
-      "Ожидается снег в ближайшее время.",
-      "На улице снег - одевайтесь теплее.",
-      "Возможна скользкая дорога, будьте аккуратны."
+      localeManager.getText('tip_snow_msg1'),
+      localeManager.getText('tip_snow_msg2'),
+      localeManager.getText('tip_snow_msg3'),
     ];
     
     return {
       'type': 'snow',
-      'title': 'Снегопад',
+      'title': localeManager.getText('tip_snow_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
       'color': const Color(0xFF9E9E9E),
@@ -103,61 +109,77 @@ class TipsSystem {
     };
   }
   
-  Map<String, dynamic> _createRainTip(Map<String, dynamic> hourData) {
+  Map<String, dynamic> _createRainTip(Map<String, dynamic> hourData, LocaleManager localeManager) {
     final pop = (hourData['pop'] ?? 0.5) * 100;
     
     final messages = [
-      "Ожидается дождь - возьмите зонт.",
-      "Возможны осадки, лучше одеться соответствующе.",
-      "На улице может идти дождь, учитывайте это при выходе."
+      localeManager.getText('tip_rain_msg1'),
+      localeManager.getText('tip_rain_msg2'),
+      localeManager.getText('tip_rain_msg3'),
     ];
     
-    final intensity = pop > 70 ? "сильный" : (pop > 40 ? "умеренный" : "небольшой");
+    String intensityKey;
+    if (pop > 70) {
+      intensityKey = 'tip_rain_heavy';
+    } else if (pop > 40) {
+      intensityKey = 'tip_rain_moderate';
+    } else {
+      intensityKey = 'tip_rain_light';
+    }
+    final intensity = localeManager.getText(intensityKey);
     
     return {
       'type': 'rain',
-      'title': 'Возможен $intensity дождь',
+      'title': '${localeManager.getText('tip_rain_title')} $intensity',
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Вероятность: ${pop.round()}%',
+      'time': '${localeManager.getText('precipitation_prob')}: ${pop.round()}%',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.beach_access,
     };
   }
   
-  Map<String, dynamic> _createSunriseTip(DateTime sunrise) {
+  Map<String, dynamic> _createSunriseTip(
+    DateTime sunrise, 
+    LocaleManager localeManager,
+    BuildContext context,
+  ) {
     final messages = [
-      "Скоро рассвет.",
-      "Начинается новый день.",
-      "Хорошего утра:)"
+      localeManager.getText('tip_sunrise_msg1'),
+      localeManager.getText('tip_sunrise_msg2'),
+      localeManager.getText('tip_sunrise_msg3'),
     ];
     
     return {
       'type': 'sunrise',
-      'title': 'Рассвет',
+      'title': localeManager.getText('tip_sunrise_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'В ${_formatTime(sunrise)}',
+      'time': '${localeManager.getText('sunrise')} ${TimeUtils.formatTime(context, sunrise)}',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.wb_sunny,
     };
   }
   
-  Map<String, dynamic> _createSunsetTip(DateTime sunset) {
+  Map<String, dynamic> _createSunsetTip(
+    DateTime sunset, 
+    LocaleManager localeManager,
+    BuildContext context,
+  ) {
     final messages = [
-      "Скоро закат.",
-      "День подходит к завершению."
+      localeManager.getText('tip_sunset_msg1'),
+      localeManager.getText('tip_sunset_msg2'),
     ];
     
     return {
       'type': 'sunset',
-      'title': 'Закат',
+      'title': localeManager.getText('tip_sunset_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'В ${_formatTime(sunset)}',
+      'time': '${localeManager.getText('sunset')} ${TimeUtils.formatTime(context, sunset)}',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.nightlight_round,
     };
   }
   
-  Map<String, dynamic> _createWeatherTip(Map<String, dynamic> weatherData) {
+  Map<String, dynamic> _createWeatherTip(Map<String, dynamic> weatherData, LocaleManager localeManager) {
     final weatherMain = weatherData['weather'][0]['main'].toLowerCase();
     final temp = weatherData['main']['temp'].round();
     final feelsLike = weatherData['main']['feels_like'].round();
@@ -165,45 +187,45 @@ class TipsSystem {
     final timeOfDay = _getTimeOfDay();
     
     if (timeOfDay == 'night') {
-      return _createNightTip(temp, weatherMain);
+      return _createNightTip(temp, weatherMain, localeManager);
     }
     
     if (timeOfDay == 'morning') {
-      return _createMorningTip(temp, humidity, weatherMain);
+      return _createMorningTip(temp, humidity, weatherMain, localeManager);
     }
     
     switch(weatherMain) {
       case 'clear':
-        return _createClearSkyTip(temp, feelsLike);
+        return _createClearSkyTip(temp, feelsLike, localeManager);
       case 'clouds':
-        return _createCloudsTip(temp);
+        return _createCloudsTip(temp, localeManager);
       case 'rain':
-        return _createRainyTip();
+        return _createRainyTip(localeManager);
       case 'snow':
-        return _createSnowyTip(temp);
+        return _createSnowyTip(temp, localeManager);
       case 'thunderstorm':
-        return _createThunderstormTip();
+        return _createThunderstormTip(localeManager);
       case 'drizzle':
-        return _createDrizzleTip();
+        return _createDrizzleTip(localeManager);
       case 'mist':
       case 'fog':
       case 'haze':
-        return _createFoggyTip();
+        return _createFoggyTip(localeManager);
       default:
-        return _createDefaultTip();
+        return _createDefaultTip(localeManager);
     }
   }
   
-  Map<String, dynamic> _createNightTip(int temp, String weatherMain) {
+  Map<String, dynamic> _createNightTip(int temp, String weatherMain, LocaleManager localeManager) {
     final messages = [
-      "Сейчас ночь, лучше отдохнуть.",
-      "На улице $temp°C - проветрите перед сном.",
-      "Температура $temp°C, комфортно для сна."
+      localeManager.getText('tip_night_msg1'),
+      localeManager.getTextWithArgs('tip_night_msg2', {'temp': temp.toString()}),
+      localeManager.getTextWithArgs('tip_night_msg3', {'temp': temp.toString()}),
     ];
     
     return {
       'type': 'night',
-      'title': 'Ночь',
+      'title': localeManager.getText('tip_night_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
@@ -211,12 +233,12 @@ class TipsSystem {
     };
   }
   
-  Map<String, dynamic> _createMorningTip(int temp, double humidity, String weatherMain) {
+  Map<String, dynamic> _createMorningTip(int temp, double humidity, String weatherMain, LocaleManager localeManager) {
     if (temp <= 5) {
       return {
         'type': 'morning',
-        'title': 'Холодное утро',
-        'message': 'На улице $temp°C, одевайтесь теплее.',
+        'title': localeManager.getText('tip_morning_cold_title'),
+        'message': localeManager.getTextWithArgs('tip_morning_cold_msg', {'temp': temp.toString()}),
         'time': '$temp°C',
         'color': const Color(0xFF9E9E9E),
         'icon': Icons.wb_sunny,
@@ -226,8 +248,8 @@ class TipsSystem {
     if (humidity > 70) {
       return {
         'type': 'morning',
-        'title': 'Влажное утро',
-        'message': 'Температура $temp°C, влажность высокая - возможна духота.',
+        'title': localeManager.getText('tip_morning_humid_title'),
+        'message': localeManager.getTextWithArgs('tip_morning_humid_msg', {'temp': temp.toString()}),
         'time': '${humidity.round()}%',
         'color': const Color(0xFF9E9E9E),
         'icon': Icons.wb_sunny,
@@ -235,14 +257,14 @@ class TipsSystem {
     }
     
     final messages = [
-      "Утро комфортное, можно проветрить помещение.",
-      "На улице $temp°C - нормальная погода для начала дня.",
-      "Свежий воздух, хорошее утро."
+      localeManager.getText('tip_morning_msg1'),
+      localeManager.getTextWithArgs('tip_morning_msg2', {'temp': temp.toString()}),
+      localeManager.getText('tip_morning_msg3'),
     ];
     
     return {
       'type': 'morning',
-      'title': 'Утро',
+      'title': localeManager.getText('tip_morning_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
@@ -250,33 +272,33 @@ class TipsSystem {
     };
   }
   
-  Map<String, dynamic> _createClearSkyTip(int temp, int feelsLike) {
+  Map<String, dynamic> _createClearSkyTip(int temp, int feelsLike, LocaleManager localeManager) {
     final messages = [
-      "Ясная погода, хорошее время для прогулки.",
-      "Солнечно, можно выйти на улицу.",
-      "Комфортная погода для активности."
+      localeManager.getText('tip_clear_msg1'),
+      localeManager.getText('tip_clear_msg2'),
+      localeManager.getText('tip_clear_msg3'),
     ];
     
     return {
       'type': 'clear',
-      'title': 'Ясно',
+      'title': localeManager.getText('tip_clear_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Ощущается как $feelsLike°C',
+      'time': '${localeManager.getText('feels_like')} $feelsLike°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.wb_sunny,
     };
   }
   
-  Map<String, dynamic> _createCloudsTip(int temp) {
+  Map<String, dynamic> _createCloudsTip(int temp, LocaleManager localeManager) {
     final messages = [
-      "Облачно, без осадков.",
-      "Облачно, возможно пасмурно, но стабильно.",
-      "Обычная погода для дел вне дома."
+      localeManager.getText('tip_clouds_msg1'),
+      localeManager.getText('tip_clouds_msg2'),
+      localeManager.getText('tip_clouds_msg3'),
     ];
     
     return {
       'type': 'clouds',
-      'title': 'Облачно',
+      'title': localeManager.getText('tip_clouds_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
@@ -284,33 +306,33 @@ class TipsSystem {
     };
   }
   
-  Map<String, dynamic> _createRainyTip() {
+  Map<String, dynamic> _createRainyTip(LocaleManager localeManager) {
     final messages = [
-      "Идёт дождь, лучше взять зонт.",
-      "Осадки на улице, учитите это.",
-      "Мокрая погода, будьте осторожны."
+      localeManager.getText('tip_rainy_msg1'),
+      localeManager.getText('tip_rainy_msg2'),
+      localeManager.getText('tip_rainy_msg3'),
     ];
     
     return {
       'type': 'rain',
-      'title': 'Дождь',
+      'title': localeManager.getText('tip_rainy_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Осадки',
+      'time': localeManager.getText('precipitation'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.beach_access,
     };
   }
   
-  Map<String, dynamic> _createSnowyTip(int temp) {
+  Map<String, dynamic> _createSnowyTip(int temp, LocaleManager localeManager) {
     final messages = [
-      "Снег на улице, одевайтесь теплее.",
-      "Зимняя погода, возможен гололёд.",
-      "Холодно и снежно."
+      localeManager.getText('tip_snowy_msg1'),
+      localeManager.getText('tip_snowy_msg2'),
+      localeManager.getText('tip_snowy_msg3'),
     ];
     
     return {
       'type': 'snow',
-      'title': 'Снег',
+      'title': localeManager.getText('tip_snowy_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
@@ -318,75 +340,71 @@ class TipsSystem {
     };
   }
   
-  Map<String, dynamic> _createThunderstormTip() {
+  Map<String, dynamic> _createThunderstormTip(LocaleManager localeManager) {
     final messages = [
-      "Гроза, лучше оставаться в помещении.",
-      "Штормовая погода, соблюдайте осторожность.",
-      "Возможны разряды молний."
+      localeManager.getText('tip_thunder_msg1'),
+      localeManager.getText('tip_thunder_msg2'),
+      localeManager.getText('tip_thunder_msg3'),
     ];
     
     return {
       'type': 'thunderstorm',
-      'title': 'Гроза',
+      'title': localeManager.getText('tip_thunder_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Опасные условия',
+      'time': localeManager.getText('precipitation'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.flash_on,
     };
   }
   
-  Map<String, dynamic> _createDrizzleTip() {
+  Map<String, dynamic> _createDrizzleTip(LocaleManager localeManager) {
     final messages = [
-      "Морось, возможна влажность.",
-      "Лёгкие осадки.",
-      "Слабый дождь."
+      localeManager.getText('tip_drizzle_msg1'),
+      localeManager.getText('tip_drizzle_msg2'),
+      localeManager.getText('tip_drizzle_msg3'),
     ];
     
     return {
       'type': 'drizzle',
-      'title': 'Морось',
+      'title': localeManager.getText('tip_drizzle_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Небольшие осадки',
+      'time': localeManager.getText('precipitation'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.grain,
     };
   }
   
-  Map<String, dynamic> _createFoggyTip() {
+  Map<String, dynamic> _createFoggyTip(LocaleManager localeManager) {
     final messages = [
-      "Туман, ограниченная видимость.",
-      "Будьте осторожны на дороге.",
-      "Плохая видимость."
+      localeManager.getText('tip_fog_msg1'),
+      localeManager.getText('tip_fog_msg2'),
+      localeManager.getText('tip_fog_msg3'),
     ];
     
     return {
       'type': 'fog',
-      'title': 'Туман',
+      'title': localeManager.getText('tip_fog_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Сниженная видимость',
+      'time': localeManager.getText('visibility'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.foggy,
     };
   }
   
-  Map<String, dynamic> _createDefaultTip() {
+  Map<String, dynamic> _createDefaultTip(LocaleManager localeManager) {
     final messages = [
-      "Обычная погода.",
-      "Одевайтесь по погоде.",
-      "Следите за изменениями прогноза."
+      localeManager.getText('tip_default_msg1'),
+      localeManager.getText('tip_default_msg2'),
+      localeManager.getText('tip_default_msg3'),
     ];
     
     return {
       'type': 'default',
-      'title': 'Совет',
+      'title': localeManager.getText('tip_default_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': 'Без особенностей',
+      'time': localeManager.getText('no_data'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.coffee,
     };
-  }
-  
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 }

@@ -10,6 +10,6 @@ class LocaleStorage {
   
   static Future<String> getLocale() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyLocale) ?? 'Русский';
+    return prefs.getString(_keyLocale) ?? 'Английский';
   }
 }

@@ -62,7 +62,7 @@ class SettingsConst {
   static const String telegramUsername = 'durovfm';
   // КОНЕЦ */
   static const String copyrightText = '© 2026 Weather Cloud';
-  static const String appVersion = 'Версия 1.0.0r';
+  static const String appVersion = 'Version 0.9.0';
 
   // ПЕРЕИСПОЛЬЗУЕМЫЕ БОРДЕРЫ
   static Border get defaultBorder => Border.all(color: Colors.white.withValues(alpha: 0.1));
@@ -76,51 +76,52 @@ static const String changelogCurrentVersion = '0.9.0 Beta';
 static const String changelogText = ''
     // 0.9.0 Beta
     '0.9.0 Beta\n'
-    'Первое публичное бета-тестирование.\n\n'
-    '- Навигация: теперь панель управления скрывается при прокрутке вниз и плавно возвращается при прокрутке вверх.\n\n'
-    '- Удалена иконка мусора с кнопки "Очистить данные".\n\n'
-    '- Исправлен огромный отступ снизу на главном экране.\n\n'
-    '- Блок "Помощь и обратная связь" временно отключен.\n\n'
-    '- Блок "Графики" закомментирован для подготовки к обновлению.\n\n'
-    '- Оптимизировано поведение компактного хедера при скролле.\n\n'
-    '- Улучшена общая стабильность и плавность анимаций.\n\n'
+    'First public beta testing.\n\n'
+    '- Navigation: control panel now hides when scrolling down and smoothly returns when scrolling up.\n\n'
+    '- Removed trash icon from "Clear data" button.\n\n'
+    '- Fixed huge bottom padding on the main screen.\n\n'
+    '- "Help and Feedback" section temporarily disabled.\n\n'
+    '- "Graphs" section commented out for future update.\n\n'
+    '- Optimized compact header behavior during scrolling.\n\n'
+    '- Improved overall stability and animation smoothness.\n\n'
+    '- Added full localization support: Russian and English languages.\n\n'
 
-    // 0.8.7-патч
+    // 0.8.7-patch
     '0.8.7-patch\n'
-    'Стабилизационный патч.\n\n'
-    '- Добавлен шанс дождя в карточки "Почасовой прогноз" и "Пятидневный прогноз"\n\n'
-    '- Улучшено поведение страницы "Activity": обновление данных стало стабильнее и предсказуемее.\n\n'
-    '- Исправлена проблема с бесконечным индикатором загрузки при выходе со страницы.\n\n'
-    '- Улучшена синхронизация локального кэша и состояния интерфейса.\n\n'
-    '- Оптимизирован процесс фонового обновления данных (меньше лишних перезагрузок).\n\n'
-    '- Повышена общая стабильность работы страницы активности.\n\n'
+    'Stability patch.\n\n'
+    '- Added rain chance to "Hourly forecast" and "5-day forecast" cards.\n\n'
+    '- Improved "Activity" page behavior: data updates are now more stable and predictable.\n\n'
+    '- Fixed infinite loading indicator issue when leaving the page.\n\n'
+    '- Improved local cache and UI state synchronization.\n\n'
+    '- Optimized background data update process (fewer unnecessary reloads).\n\n'
+    '- Increased overall stability of the activity page.\n\n'
 
     // 0.8.6b
     '0.8.6b\n'
-    'Продолжаются улучшения.\n\n'
-    '- На странице "Другое" (ранее "Активности") добавлены дополнительные '
-    'показатели с Open-Meteo: УФ-индекс, точка росы, видимость, '
-    'вероятность осадков и солнечная радиация.\n\n'
-    '- Убран эффект свечения при прокрутке в конце списка.\n\n'
-    '- Добавлен экран "Что нового?" в настройках приложения.\n\n'
+    'Continuing improvements.\n\n'
+    '- Added additional metrics from Open-Meteo to "Other" page (formerly "Activities"): '
+    'UV index, dew point, visibility, precipitation probability, and solar radiation.\n\n'
+    '- Removed glow effect at the end of the scroll list.\n\n'
+    '- Added "What\'s new?" screen in app settings.\n\n'
+
     // 0.8.5b
     '0.8.5b\n'
-    'Первое публичное тестирование.\n\n'
-    '- Переработана структура получения данных от API. '
-    'Теперь есть OWM и OM. Если OWM не отвечает, '
-    'в ту же секунду придут данные от OM. '
-    'За счёт переработки структуры и добавления нового источника данных '
-    'парсинг данных стал быстрее.\n\n'
-    '- Благодаря OM исчезла проблема с рассветом/закатом. '
-    'Теперь отображение времени в этой секции правильное в любом регионе.\n\n'
-    '- Секция с советом перемещена чуть выше.\n\n'
-    '- Микро изменение: текст в ветре теперь отображается как '
-    '"Ветер: Северный; Северо-Западный" '
-    '(ранее было "Ветер С; СЗ").\n\n'
-    '- Переработана страница "Активности" — теперь она называется "Другое". '
-    'Подготовлено место под новые секции.\n\n'
-    '- Оптимизировано: некоторые элементы кода вынесены в папку utils '
-    'в файл weather_utils.dart.\n\n'
-    '- Подготовлена площадка под локализацию.\n\n'
-    '- Анимации стали чуть плавнее.';
+    'First public testing.\n\n'
+    '- Reworked API data fetching structure. '
+    'Now there are OWM and OM. If OWM does not respond, '
+    'data will come from OM instantly. '
+    'Due to the rework of the structure and the addition of a new data source, '
+    'data parsing has become faster.\n\n'
+    '- Thanks to OM, the sunrise/sunset issue has been resolved. '
+    'The time display in this section is now correct in any region.\n\n'
+    '- The tip section has been moved slightly higher.\n\n'
+    '- Micro change: wind text is now displayed as '
+    '"Wind: North; Northwest" '
+    '(previously "Wind: N; NW").\n\n'
+    '- Reworked "Activities" page — now called "Other". '
+    'Space prepared for new sections.\n\n'
+    '- Optimized: some code elements moved to the utils folder '
+    'in the weather_utils.dart file.\n\n'
+    '- Prepared groundwork for localization.\n\n'
+    '- Animations have become slightly smoother.';
 }

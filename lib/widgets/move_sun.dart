@@ -26,6 +26,7 @@ class _MoveSunState extends State<MoveSun> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Timer _updateTimer;
   double _progress = 0.0;
+  double _targetProgress = 0.0;
   bool _isNight = false;
 
   @override
@@ -38,9 +39,13 @@ class _MoveSunState extends State<MoveSun> with SingleTickerProviderStateMixin {
   void _initAnimation() {
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
     )..addListener(() {
-        if (mounted) setState(() {});
+        if (mounted) {
+          setState(() {
+            _progress = _controller.value * _targetProgress;
+          });
+        }
       });
 
     _updateProgress();
@@ -59,12 +64,22 @@ class _MoveSunState extends State<MoveSun> with SingleTickerProviderStateMixin {
     final now = DateTime.now();
     final totalDuration = widget.sunset.difference(widget.sunrise).inSeconds;
     final elapsed = now.difference(widget.sunrise).inSeconds;
-    _progress = totalDuration > 0 
+    _targetProgress = totalDuration > 0 
         ? (elapsed / totalDuration).clamp(0.0, 1.0) 
         : 0.0;
     
-    // Проверяем, наступила ли ночь
+    if (_progress == 0) {
+      _progress = _targetProgress;
+    }
+    
     _isNight = now.isAfter(widget.sunset) || now.isBefore(widget.sunrise);
+  }
+
+  void updatePosition() {
+    _updateProgress();
+    if (mounted) {
+      _controller.forward(from: 0);
+    }
   }
 
   @override
@@ -76,20 +91,17 @@ class _MoveSunState extends State<MoveSun> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // Определяем цвета в зависимости от времени суток
     final Color pathColor;
     final Color activePathColor;
     final Color sunColor;
     final Color glowColor;
     
     if (_isNight) {
-      // Ночные цвета - серые и тусклые
       pathColor = WeatherConst.textPrimary.withValues(alpha: 0.08);
       activePathColor = WeatherConst.textPrimary.withValues(alpha: 0.12);
       sunColor = WeatherConst.textPrimary.withValues(alpha: 0.25);
       glowColor = Colors.transparent;
     } else {
-      // Дневные цвета - яркие и солнечные
       pathColor = WeatherConst.textPrimary.withValues(alpha: 0.15);
       activePathColor = WeatherConst.accentSunYellow.withValues(alpha: 0.8);
       sunColor = WeatherConst.accentSunYellow;
@@ -140,12 +152,10 @@ class SunPainter extends CustomPainter {
     final topY = height * 0.1;
     final bottomY = height * 0.85;
 
-    // Строим дугу
     final path = Path();
     path.moveTo(0, bottomY);
     path.quadraticBezierTo(centerX, topY, width, bottomY);
 
-    // Рисуем неактивную (серую) часть дуги
     final basePaint = Paint()
       ..color = pathColor
       ..style = PaintingStyle.stroke
@@ -153,8 +163,6 @@ class SunPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(path, basePaint);
 
-    // Рисуем активную часть дуги (пройденный путь)
-    // Если ночь - рисуем серую дугу, иначе жёлтую
     if (progress > 0 && !isNight) {
       final metrics = path.computeMetrics().first;
       final activeLength = metrics.length * progress.clamp(0.0, 1.0);
@@ -168,7 +176,6 @@ class SunPainter extends CustomPainter {
       canvas.drawPath(activePath, activePaint);
     }
 
-    // Рисуем солнце/луну на дуге
     if (progress > 0 && progress < 1) {
       final metrics = path.computeMetrics().first;
       final activeLength = metrics.length * progress.clamp(0.0, 1.0);
@@ -177,7 +184,6 @@ class SunPainter extends CustomPainter {
       if (tangent != null) {
         final sunCenter = tangent.position;
 
-        // Свечение (только днём)
         if (!isNight) {
           final glowPaint = Paint()
             ..color = glowColor
@@ -190,13 +196,11 @@ class SunPainter extends CustomPainter {
           canvas.drawCircle(sunCenter, 45, glowPaint2);
         }
 
-        // Рисуем само солнце (или луну ночью)
         final sunPaint = Paint()
           ..color = sunColor
           ..style = PaintingStyle.fill;
         canvas.drawCircle(sunCenter, isNight ? 8 : 10, sunPaint);
 
-        // Блик (только днём)
         if (!isNight) {
           final highlightPaint = Paint()
             ..color = Colors.white.withValues(alpha: 0.4)
@@ -207,8 +211,6 @@ class SunPainter extends CustomPainter {
             highlightPaint,
           );
         } else {
-          // Ночью рисуем полумесяц (опционально)
-          // Можно добавить эффект луны
           final moonPaint = Paint()
             ..color = Colors.white.withValues(alpha: 0.1)
             ..style = PaintingStyle.fill;

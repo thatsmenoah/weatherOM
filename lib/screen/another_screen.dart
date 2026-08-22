@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
+import 'dart:math';
 import '../services/weather_service.dart';
 import '../utils/weather_utils.dart';
 import '../core/data_system.dart';
 import '../core/loading_system.dart';
+import '../core/locale_manager.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -13,24 +15,23 @@ class ActivityScreen extends StatefulWidget {
 }
 
 class _ActivityScreenState extends State<ActivityScreen> {
-  // ДАННЫЕ
+  final LocaleManager _localeManager = LocaleManager();
+
   Map<String, dynamic>? weatherData;
   Map<String, dynamic>? airQualityData;
   Map<String, dynamic>? extraMetrics;
   String? cityName;
   double? lat;
   double? lon;
-  
-  // СОСТОЯНИЕ
+
   bool _isLoading = false;
   bool _isRefreshing = false;
   String _errorMessage = '';
   bool _hasData = false;
-  
-  // КЕШ И ЗАГРУЗКА
+
   final DataSystem _dataSystem = DataSystem(fileName: 'activity_data.json');
   final LoadingStateManager _loadingManager = LoadingStateManager();
-  
+
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -56,26 +57,24 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   Future<void> _initDataSystem() async {
     await _dataSystem.init();
-    
+
     final cachedData = _dataSystem.getAllCachedData();
-    
-    if (cachedData != null && _dataSystem.isDataValid) {
+
+    if (cachedData != null && _dataSystem.isWeatherValid) {
       _applyDataFromCache(cachedData);
       _loadingManager.finishLoading(fromStorage: true);
       setState(() {
         _hasData = true;
         _isLoading = false;
       });
-      
       _fetchDataInBackground();
-    } else if (cachedData != null && !_dataSystem.isDataValid) {
+    } else if (cachedData != null && !_dataSystem.isWeatherValid) {
       _applyDataFromCache(cachedData);
       _loadingManager.setOfflineMode();
       setState(() {
         _hasData = true;
         _isLoading = false;
       });
-      
       _fetchDataInBackground();
     } else {
       setState(() {
@@ -93,7 +92,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
       airQualityData = cachedData['airQuality'];
       extraMetrics = cachedData['extraMetrics'];
       cityName = cachedData['city'];
-      
+
       if (cachedData.containsKey('lat')) {
         lat = cachedData['lat'] as double?;
         lon = cachedData['lon'] as double?;
@@ -108,35 +107,42 @@ class _ActivityScreenState extends State<ActivityScreen> {
         lat = position.latitude;
         lon = position.longitude;
       }
-      
-      final data = await WeatherService.fetchWeatherAndAirQuality(lat!, lon!);
-      final metrics = await WeatherService.fetchExtraMetricsFromOpenMeteo(lat!, lon!);
-      
-      final cityNameFromData = data['weather']?['name'] ?? 'Неизвестно';
-      
+
+      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+
+      if (response.hasError) {
+        return;
+      }
+
+      final weather = response.weather;
+      final airQuality = response.airQuality;
+      final extraMetricsFromResponse = _extractExtraMetrics(weather);
+
+      final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
+
       await _dataSystem.saveToCache(
-        weatherData: data['weather'],
+        weatherData: weather,
         forecastData: null,
-        airQualityData: data['airQuality'],
+        airQualityData: airQuality,
         sunData: null,
-        extraMetrics: metrics,
+        extraMetrics: extraMetricsFromResponse,
         cityName: cityNameFromData,
         lat: lat,
         lon: lon,
       );
-      
+
       if (mounted) {
         setState(() {
-          weatherData = data['weather'];
-          airQualityData = data['airQuality'];
-          extraMetrics = metrics;
+          weatherData = weather;
+          airQualityData = airQuality;
+          extraMetrics = extraMetricsFromResponse;
           cityName = cityNameFromData;
           _hasData = true;
         });
         _loadingManager.finishLoading(fromStorage: false);
       }
     } catch (e) {
-      // ФОНОВАЯ ОШИБКА - ИГНОРИРУЕМ, Т.К. ДАННЫЕ УЖЕ ПОКАЗАНЫ
+      // Фоновая ошибка — игнорируем
     }
   }
 
@@ -160,36 +166,48 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   Future<void> _fetchData() async {
     try {
-      final data = await WeatherService.fetchWeatherAndAirQuality(lat!, lon!);
-      final metrics = await WeatherService.fetchExtraMetricsFromOpenMeteo(lat!, lon!);
-      
-      final cityNameFromData = data['weather']?['name'] ?? 'Неизвестно';
-      
+      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+
+      if (response.hasError) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = _localeManager.getText('no_internet');
+        });
+        _loadingManager.setError(_errorMessage);
+        return;
+      }
+
+      final weather = response.weather;
+      final airQuality = response.airQuality;
+      final extraMetricsFromResponse = _extractExtraMetrics(weather);
+
+      final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
+
       await _dataSystem.saveToCache(
-        weatherData: data['weather'],
+        weatherData: weather,
         forecastData: null,
-        airQualityData: data['airQuality'],
+        airQualityData: airQuality,
         sunData: null,
-        extraMetrics: metrics,
+        extraMetrics: extraMetricsFromResponse,
         cityName: cityNameFromData,
         lat: lat,
         lon: lon,
       );
-      
+
       setState(() {
-        weatherData = data['weather'];
-        airQualityData = data['airQuality'];
-        extraMetrics = metrics;
+        weatherData = weather;
+        airQualityData = airQuality;
+        extraMetrics = extraMetricsFromResponse;
         cityName = cityNameFromData;
         _isLoading = false;
         _hasData = true;
       });
-      
+
       _loadingManager.finishLoading(fromStorage: false);
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Проверьте подключение к интернету';
+        _errorMessage = _localeManager.getText('no_internet');
       });
       _loadingManager.setError(_errorMessage);
     }
@@ -200,46 +218,102 @@ class _ActivityScreenState extends State<ActivityScreen> {
       _isRefreshing = true;
     });
     _loadingManager.startRefreshing();
-    
+
     try {
       if (lat == null || lon == null) {
         final position = await WeatherService.getCurrentPosition();
         lat = position.latitude;
         lon = position.longitude;
       }
-      
-      final data = await WeatherService.fetchWeatherAndAirQuality(lat!, lon!);
-      final metrics = await WeatherService.fetchExtraMetricsFromOpenMeteo(lat!, lon!);
-      
-      final cityNameFromData = data['weather']?['name'] ?? 'Неизвестно';
-      
+
+      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+
+      if (response.hasError) {
+        setState(() {
+          _isRefreshing = false;
+        });
+        _loadingManager.setError(_localeManager.getText('refresh_error'));
+        return;
+      }
+
+      final weather = response.weather;
+      final airQuality = response.airQuality;
+      final extraMetricsFromResponse = _extractExtraMetrics(weather);
+
+      final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
+
       await _dataSystem.saveToCache(
-        weatherData: data['weather'],
+        weatherData: weather,
         forecastData: null,
-        airQualityData: data['airQuality'],
+        airQualityData: airQuality,
         sunData: null,
-        extraMetrics: metrics,
+        extraMetrics: extraMetricsFromResponse,
         cityName: cityNameFromData,
         lat: lat,
         lon: lon,
       );
-      
+
       setState(() {
-        weatherData = data['weather'];
-        airQualityData = data['airQuality'];
-        extraMetrics = metrics;
+        weatherData = weather;
+        airQualityData = airQuality;
+        extraMetrics = extraMetricsFromResponse;
         cityName = cityNameFromData;
         _isRefreshing = false;
         _hasData = true;
       });
-      
+
       _loadingManager.finishLoading(fromStorage: false);
     } catch (e) {
       setState(() {
         _isRefreshing = false;
       });
-      _loadingManager.setError('Ошибка обновления');
+      _loadingManager.setError(_localeManager.getText('refresh_error'));
     }
+  }
+
+  Map<String, dynamic> _extractExtraMetrics(Map<String, dynamic> weather) {
+    final extra = weather['_extra'] as Map<String, dynamic>?;
+
+    double? uvIndex;
+    if (extra != null && extra['uvIndex'] != null) {
+      uvIndex = (extra['uvIndex'] as num).toDouble();
+    }
+
+    int? precipProb;
+    if (extra != null && extra['precipitationProbability'] != null) {
+      precipProb = (extra['precipitationProbability'] as num).toInt();
+    }
+
+    // Используем готовую точку росы из _extra, если есть
+    double? dewPoint = extra?['dewPoint'] as double?;
+
+    // Если нет — вычисляем сами
+    if (dewPoint == null) {
+      final temp = weather['main']?['temp'] ?? 0.0;
+      final humidity = weather['main']?['humidity'] ?? 0.0;
+      if (temp is num && humidity is num) {
+        final t = temp.toDouble();
+        final h = humidity.toDouble();
+        if (t != 0 && h > 0) {
+          const a = 17.27;
+          const b = 237.7;
+          final alpha = (a * t) / (b + t) + log(h / 100);
+          dewPoint = (b * alpha) / (a - alpha);
+        }
+      }
+    }
+
+    double? visibility = weather['visibility'] != null
+        ? (weather['visibility'] as num).toDouble()
+        : null;
+
+    return {
+      'dewPoint': dewPoint,
+      'visibility': visibility,
+      'uvIndex': uvIndex,
+      'precipitationProbability': precipProb,
+      'shortwaveRadiation': null,
+    };
   }
 
   double _getAirQualityScore() => WeatherUtils.calculateAirQualityScore(airQualityData);
@@ -267,28 +341,25 @@ class _ActivityScreenState extends State<ActivityScreen> {
                 child: _buildContent(),
               )
             else
-              const Center(
+              Center(
                 child: Text(
-                  'Нет данных',
-                  style: TextStyle(color: Color(0xFFa0a0a0)),
+                  _localeManager.getText('no_data'),
+                  style: const TextStyle(color: Color(0xFFa0a0a0)),
                 ),
               ),
-            
             if (_isRefreshing) _buildRefreshOverlay(),
-            
             if (_loadingManager.isOffline && _hasData)
-              const StatusToast(
+              StatusToast(
                 isVisible: true,
-                title: 'Оффлайн режим • Используются кешированные данные',
-                backgroundColor: Color(0xFFf59e0b),
+                title: _localeManager.getText('offline_mode'),
+                backgroundColor: const Color(0xFFf59e0b),
               ),
-            
             if (_loadingManager.hasError && _hasData && !_loadingManager.isOffline)
               StatusToast(
                 isVisible: true,
-                title: _loadingManager.errorMessage.isNotEmpty 
-                    ? _loadingManager.errorMessage 
-                    : 'Не удалось обновить данные',
+                title: _loadingManager.errorMessage.isNotEmpty
+                    ? _loadingManager.errorMessage
+                    : _localeManager.getText('update_failed'),
               ),
           ],
         ),
@@ -334,7 +405,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
-            child: const Text('Повторить'),
+            child: Text(_localeManager.getText('retry')),
           ),
         ],
       ),
@@ -364,50 +435,49 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }
 
   Widget _buildHeader() {
-  return TweenAnimationBuilder<double>(
-    tween: Tween(begin: 0.0, end: 1.0),
-    duration: const Duration(milliseconds: 500),
-    builder: (context, opacity, child) {
-      return Opacity(
-        opacity: opacity,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - opacity)),
-          child: child,
-        ),
-      );
-    },
-    child: Column(
-      children: [
-        ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Colors.white, Color(0xFFe3f2fd)],
-          ).createShader(bounds),
-          child: const Text(
-            'Качество воздуха',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 500),
+      builder: (context, opacity, child) {
+        return Opacity(
+          opacity: opacity,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - opacity)),
+            child: child,
+          ),
+        );
+      },
+      child: Column(
+        children: [
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFe3f2fd)],
+            ).createShader(bounds),
+            child: Text(
+              _localeManager.getText('air_quality_title'),
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
           ),
-        ),
-        // ❌ СТРОКА "Данные для ..." УДАЛЕНА
-        if (_dataSystem.lastUpdateTime != null) ...[
-          const SizedBox(height: 6),
-          UpdateTimeIndicator(
-            updateTime: _dataSystem.lastUpdateTime,
-            isFromCache: _loadingManager.isUsingStorage,
-          ),
+          if (_dataSystem.lastUpdateTime != null) ...[
+            const SizedBox(height: 6),
+            UpdateTimeIndicator(
+              updateTime: _dataSystem.lastUpdateTime,
+              isFromCache: _loadingManager.isUsingStorage,
+            ),
+          ],
         ],
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
 
   Widget _buildAirQualitySection() {
     final airScore = _getAirQualityScore();
     final comp = airQualityData!['list'][0]['components'];
-    
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 500),
@@ -452,9 +522,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Общий индекс',
-                              style: TextStyle(
+                            Text(
+                              _localeManager.getText('overall_index'),
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFFa0a0a0),
                                 fontWeight: FontWeight.w600,
@@ -474,30 +544,58 @@ class _ActivityScreenState extends State<ActivityScreen> {
                       ),
                     ],
                   ),
-                  
                   const SizedBox(height: 16),
-                  
                   Row(
                     children: [
-                      Expanded(child: _buildAirMetricCompact('PM2.5', comp['pm2_5']?.toStringAsFixed(1) ?? '--', 'µg/m³', 'Мелкие частицы')),
+                      Expanded(child: _buildAirMetricCompact(
+                        _localeManager.getText('pm25'),
+                        comp['pm2_5']?.toStringAsFixed(1) ?? '--',
+                        'µg/m³',
+                        _localeManager.getText('pm25_desc')
+                      )),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildAirMetricCompact('PM10', comp['pm10']?.toStringAsFixed(0) ?? '--', 'µg/m³', 'Крупные частицы')),
+                      Expanded(child: _buildAirMetricCompact(
+                        _localeManager.getText('pm10'),
+                        comp['pm10']?.toStringAsFixed(0) ?? '--',
+                        'µg/m³',
+                        _localeManager.getText('pm10_desc')
+                      )),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _buildAirMetricCompact('CO', comp['co'] != null ? (comp['co'] / 1000).toStringAsFixed(1) : '--', 'ppm', 'Угарный газ')),
+                      Expanded(child: _buildAirMetricCompact(
+                        _localeManager.getText('co'),
+                        comp['co'] != null ? (comp['co'] / 1000).toStringAsFixed(1) : '--',
+                        'ppm',
+                        _localeManager.getText('co_desc')
+                      )),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildAirMetricCompact('NO₂', comp['no2']?.toStringAsFixed(0) ?? '--', 'ppb', 'Диоксид азота')),
+                      Expanded(child: _buildAirMetricCompact(
+                        _localeManager.getText('no2'),
+                        comp['no2']?.toStringAsFixed(0) ?? '--',
+                        'ppb',
+                        _localeManager.getText('no2_desc')
+                      )),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _buildAirMetricCompact('O₃', comp['o3']?.toStringAsFixed(0) ?? '--', 'ppb', 'Озон')),
+                      Expanded(child: _buildAirMetricCompact(
+                        _localeManager.getText('o3'),
+                        comp['o3']?.toStringAsFixed(0) ?? '--',
+                        'ppb',
+                        _localeManager.getText('o3_desc')
+                      )),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildAirMetricCompact('SO₂', comp['so2']?.toStringAsFixed(0) ?? '--', 'ppb', 'Диоксид серы')),
+                      Expanded(child: _buildAirMetricCompact(
+                        _localeManager.getText('so2'),
+                        comp['so2']?.toStringAsFixed(0) ?? '--',
+                        'ppb',
+                        _localeManager.getText('so2_desc')
+                      )),
                     ],
                   ),
                 ],
@@ -528,7 +626,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
           Text(
             '$value $unit',
             style: const TextStyle(
-              fontSize: 18, 
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: Colors.white,
             ),
@@ -549,12 +647,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final visibility = extraMetrics?['visibility'];
     final precipProb = extraMetrics?['precipitationProbability'];
     final shortwaveRad = extraMetrics?['shortwaveRadiation'];
-    
-    if (uvIndex == null && dewPoint == null && visibility == null && 
+
+    if (uvIndex == null && dewPoint == null && visibility == null &&
         precipProb == null && shortwaveRad == null) {
       return const SizedBox.shrink();
     }
-    
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 500),
@@ -569,71 +667,62 @@ class _ActivityScreenState extends State<ActivityScreen> {
       },
       child: Column(
         children: [
-          if (uvIndex != null) ...[
-            Center(
-              child: ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Colors.white, Color(0xFFe3f2fd)],
-                ).createShader(bounds),
-                child: const Text(
-                  'Дополнительно',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
+          Center(
+            child: ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Colors.white, Color(0xFFe3f2fd)],
+              ).createShader(bounds),
+              child: Text(
+                _localeManager.getText('additional_metrics'),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 16),
+          if (uvIndex != null)
             _buildMetricRow(
               icon: Icons.wb_sunny,
-              label: 'УФ-индекс',
+              label: _localeManager.getText('uv_index'),
               value: uvIndex.toStringAsFixed(1),
               description: _getUvDescription(uvIndex),
             ),
-          ],
-          
           if (uvIndex != null && dewPoint != null) const SizedBox(height: 10),
-          
           if (dewPoint != null)
             _buildMetricRow(
               icon: Icons.water_drop,
-              label: 'Точка росы',
+              label: _localeManager.getText('dew_point'),
               value: '${dewPoint.round()}°C',
               description: _getDewPointDescription(dewPoint),
             ),
-          
           if ((uvIndex != null || dewPoint != null) && visibility != null) const SizedBox(height: 10),
-          
           if (visibility != null)
             _buildMetricRow(
               icon: Icons.visibility,
-              label: 'Видимость',
-              value: '${(visibility / 1000).toStringAsFixed(1)} км',
+              label: _localeManager.getText('visibility'),
+              value: '${(visibility / 1000).toStringAsFixed(1)} km',
               description: _getVisibilityDescription(visibility),
             ),
-          
-          if ((uvIndex != null || dewPoint != null || visibility != null) && precipProb != null) 
+          if ((uvIndex != null || dewPoint != null || visibility != null) && precipProb != null)
             const SizedBox(height: 10),
-          
           if (precipProb != null)
             _buildMetricRow(
               icon: Icons.umbrella,
-              label: 'Вероятность осадков',
+              label: _localeManager.getText('precipitation_prob'),
               value: '$precipProb%',
               description: _getPrecipDescription(precipProb),
             ),
-          
-          if ((uvIndex != null || dewPoint != null || visibility != null || precipProb != null) && 
-              shortwaveRad != null) 
+          if ((uvIndex != null || dewPoint != null || visibility != null || precipProb != null) &&
+              shortwaveRad != null)
             const SizedBox(height: 10),
-          
           if (shortwaveRad != null)
             _buildMetricRow(
               icon: Icons.solar_power,
-              label: 'Солнечная радиация',
-              value: '${shortwaveRad.round()} Вт/м²',
+              label: _localeManager.getText('solar_radiation'),
+              value: '${shortwaveRad.round()} W/m²',
               description: _getRadiationDescription(shortwaveRad),
             ),
         ],
@@ -713,50 +802,50 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }
 
   String _getUvDescription(dynamic uv) {
-    if (uv == null) return 'Нет данных';
+    if (uv == null) return _localeManager.getText('no_data');
     final uvVal = uv is double ? uv : double.tryParse(uv.toString()) ?? 0.0;
-    if (uvVal <= 2) return 'Низкий';
-    if (uvVal <= 5) return 'Умеренный';
-    if (uvVal <= 7) return 'Высокий';
-    if (uvVal <= 10) return 'Очень высокий';
-    return 'Экстремальный';
+    if (uvVal <= 2) return _localeManager.getText('uv_low');
+    if (uvVal <= 5) return _localeManager.getText('uv_moderate');
+    if (uvVal <= 7) return _localeManager.getText('uv_high');
+    if (uvVal <= 10) return _localeManager.getText('uv_very_high');
+    return _localeManager.getText('uv_extreme');
   }
-  
+
   String _getDewPointDescription(dynamic dewPoint) {
-    if (dewPoint == null) return 'Нет данных';
+    if (dewPoint == null) return _localeManager.getText('no_data');
     final dp = dewPoint is double ? dewPoint : double.tryParse(dewPoint.toString()) ?? 0.0;
-    if (dp > 20) return 'Душно';
-    if (dp > 15) return 'Влажно';
-    if (dp > 10) return 'Комфортно';
-    return 'Сухо';
+    if (dp > 20) return _localeManager.getText('dew_stuffy');
+    if (dp > 15) return _localeManager.getText('dew_humid');
+    if (dp > 10) return _localeManager.getText('dew_comfort');
+    return _localeManager.getText('dew_dry');
   }
-  
+
   String _getVisibilityDescription(dynamic visibility) {
-    if (visibility == null) return 'Нет данных';
+    if (visibility == null) return _localeManager.getText('no_data');
     final vis = visibility is double ? visibility : double.tryParse(visibility.toString()) ?? 0.0;
-    if (vis > 10000) return 'Отличная';
-    if (vis > 5000) return 'Хорошая';
-    if (vis > 1000) return 'Средняя';
-    return 'Туман';
+    if (vis > 10000) return _localeManager.getText('visibility_excellent');
+    if (vis > 5000) return _localeManager.getText('visibility_good');
+    if (vis > 1000) return _localeManager.getText('visibility_moderate');
+    return _localeManager.getText('visibility_fog');
   }
-  
+
   String _getPrecipDescription(dynamic precipProb) {
-    if (precipProb == null) return 'Нет данных';
+    if (precipProb == null) return _localeManager.getText('no_data');
     final pp = precipProb is num ? precipProb.toInt() : int.tryParse(precipProb.toString()) ?? 0;
-    if (pp == 0) return 'Без осадков';
-    if (pp <= 20) return 'Маловероятно';
-    if (pp <= 50) return 'Возможно';
-    if (pp <= 80) return 'Вероятно';
-    return 'Точно будет';
+    if (pp == 0) return _localeManager.getText('precip_none');
+    if (pp <= 20) return _localeManager.getText('precip_unlikely');
+    if (pp <= 50) return _localeManager.getText('precip_possible');
+    if (pp <= 80) return _localeManager.getText('precip_likely');
+    return _localeManager.getText('precip_certain');
   }
-  
+
   String _getRadiationDescription(dynamic radiation) {
-    if (radiation == null) return 'Нет данных';
+    if (radiation == null) return _localeManager.getText('no_data');
     final rad = radiation is double ? radiation : double.tryParse(radiation.toString()) ?? 0.0;
-    if (rad <= 0) return 'Ночь';
-    if (rad <= 200) return 'Пасмурно';
-    if (rad <= 500) return 'Облачно';
-    if (rad <= 800) return 'Переменная облачность';
-    return 'Ясно';
+    if (rad <= 0) return _localeManager.getText('radiation_night');
+    if (rad <= 200) return _localeManager.getText('radiation_overcast');
+    if (rad <= 500) return _localeManager.getText('radiation_cloudy');
+    if (rad <= 800) return _localeManager.getText('radiation_partly');
+    return _localeManager.getText('radiation_clear');
   }
 }

@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import '../utils/time_utils.dart';
+import '../core/locale_manager.dart';
 
-//  СИСТЕМА ЗАГРУЗКИ 
+// ============================================================
+//  СИСТЕМА ЗАГРУЗКИ
+// ============================================================
 
 /// Состояния загрузки данных
 enum LoadingState {
-  initial,        // Начальное состояние
-  loading,        // Загрузка (поверх данных из хранилища)
-  loaded,         // Загружено
-  refreshing,     // Обновление
-  error,          // Ошибка (нет интернета, сервер недоступен)
-  offline,        // Оффлайн режим (работаем с кешем)
-  usingFallback,  // Используется резервный источник (OM) - НЕ ОШИБКА!
+  initial,
+  loading,
+  loaded,
+  refreshing,
+  error,
+  offline,
+  // ❌ УДАЛЕНО: usingFallback
 }
 
 /// Менеджер состояний загрузки
@@ -20,62 +23,58 @@ class LoadingStateManager extends ChangeNotifier {
   String _errorMessage = '';
   bool _isUsingStorage = false;
   DateTime? _lastUpdateTime;
-  
+
+  // Геттеры
   LoadingState get state => _state;
   String get errorMessage => _errorMessage;
   bool get isUsingStorage => _isUsingStorage;
   DateTime? get lastUpdateTime => _lastUpdateTime;
-  
+
   bool get isLoading => _state == LoadingState.loading;
   bool get isRefreshing => _state == LoadingState.refreshing;
   bool get hasError => _state == LoadingState.error || _state == LoadingState.offline;
   bool get isOffline => _state == LoadingState.offline;
-  bool get isUsingFallback => _state == LoadingState.usingFallback;
-  
+  // ❌ УДАЛЕНО: isUsingFallback
+
+  // Методы управления состоянием
   void startLoading() {
     _state = LoadingState.loading;
     _errorMessage = '';
     notifyListeners();
   }
-  
+
   void startRefreshing() {
     _state = LoadingState.refreshing;
     _errorMessage = '';
     notifyListeners();
   }
-  
+
   void finishLoading({bool fromStorage = false}) {
     _state = LoadingState.loaded;
     _isUsingStorage = fromStorage;
     _lastUpdateTime = DateTime.now();
     notifyListeners();
   }
-  
-  void setFallbackMode() {
-    _state = LoadingState.usingFallback;
-    _isUsingStorage = false;
-    _errorMessage = '';
-    _lastUpdateTime = DateTime.now();
-    notifyListeners();
-  }
-  
+
+  // ❌ УДАЛЕНО: setFallbackMode()
+
   void setError(String message) {
     _state = LoadingState.error;
     _errorMessage = message;
     notifyListeners();
   }
-  
+
   void setOfflineMode() {
     _state = LoadingState.offline;
     _isUsingStorage = true;
     notifyListeners();
   }
-  
+
   void setLastUpdateTime(DateTime time) {
     _lastUpdateTime = time;
     notifyListeners();
   }
-  
+
   void reset() {
     _state = LoadingState.initial;
     _errorMessage = '';
@@ -84,39 +83,43 @@ class LoadingStateManager extends ChangeNotifier {
   }
 }
 
-//  ВИДЖЕТЫ ЗАГРУЗКИ 
+// ============================================================
+//  ВИДЖЕТЫ ЗАГРУЗКИ
+// ============================================================
 
 /// Индикатор времени последнего обновления
 class UpdateTimeIndicator extends StatelessWidget {
   final DateTime? updateTime;
   final bool isFromCache;
-  
+
   const UpdateTimeIndicator({
     super.key,
     required this.updateTime,
     required this.isFromCache,
   });
-  
+
   String _formatTime(BuildContext context) {
-    if (updateTime == null) return 'Обновлено: никогда';
-    
+    final localeManager = LocaleManager();
+    if (updateTime == null) return localeManager.getText('never');
+
     final formattedTime = TimeUtils.formatTime(context, updateTime!);
-    return 'Обновлено в $formattedTime';
+    return '${localeManager.getText('update_time')} $formattedTime';
   }
-  
+
   @override
   Widget build(BuildContext context) {
+    final localeManager = LocaleManager();
     final String displayText;
     final IconData displayIcon;
-    
+
     if (isFromCache) {
-      displayText = 'Кеш-данные • ${_formatTime(context)}';
+      displayText = '${localeManager.getText('cached_data')} • ${_formatTime(context)}';
       displayIcon = Icons.storage;
     } else {
       displayText = _formatTime(context);
       displayIcon = Icons.update;
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -150,10 +153,10 @@ class UpdateTimeIndicator extends StatelessWidget {
   }
 }
 
-/// ТОЛЬКО КРУЖОЧЕК - БЕЗ СЛОВА, БЕЗ СЕРОГО ФОНА
+/// ТОЛЬКО КРУЖОЧЕК — БЕЗ СЛОВА, БЕЗ СЕРОГО ФОНА
 class TopLoadingIndicator extends StatelessWidget {
   final bool isVisible;
-  
+
   const TopLoadingIndicator({
     super.key,
     required this.isVisible,
@@ -167,13 +170,13 @@ class TopLoadingIndicator extends StatelessWidget {
       child: Container(
         height: 50,
         width: double.infinity,
-        color: Colors.transparent, // Прозрачный фон
+        color: Colors.transparent,
         child: Center(
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6), // Тёмный фон
-              shape: BoxShape.circle, // Круглая форма
+              color: Colors.black.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
             ),
             child: const SizedBox(
               width: 22,
@@ -196,7 +199,7 @@ class LoadingErrorWidget extends StatelessWidget {
   final String? subtitle;
   final VoidCallback onRetry;
   final bool isOffline;
-  
+
   const LoadingErrorWidget({
     super.key,
     required this.message,
@@ -204,9 +207,11 @@ class LoadingErrorWidget extends StatelessWidget {
     required this.onRetry,
     this.isOffline = false,
   });
-  
+
   @override
   Widget build(BuildContext context) {
+    final localeManager = LocaleManager();
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -214,24 +219,24 @@ class LoadingErrorWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isOffline ? Icons.wifi_off : Icons.error_outline, 
-              color: const Color(0xFFdc2626), 
-              size: 64
+              isOffline ? Icons.wifi_off : Icons.error_outline,
+              color: const Color(0xFFdc2626),
+              size: 64,
             ),
             const SizedBox(height: 16),
             Text(
-              message, 
+              message,
               style: const TextStyle(
-                color: Color(0xFFdc2626), 
-                fontSize: 18, 
-                fontWeight: FontWeight.bold
+                color: Color(0xFFdc2626),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
-                subtitle!, 
+                subtitle!,
                 style: const TextStyle(color: Color(0xFFa0a0a0), fontSize: 13),
                 textAlign: TextAlign.center,
               ),
@@ -245,7 +250,7 @@ class LoadingErrorWidget extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
-              child: const Text('Повторить'),
+              child: Text(localeManager.getText('retry')),
             ),
           ],
         ),
@@ -254,7 +259,7 @@ class LoadingErrorWidget extends StatelessWidget {
   }
 }
 
-/// Плашка статуса (нет интернета / оффлайн)
+/// Плашка статуса (нет интернета / ошибка)
 class StatusToast extends StatefulWidget {
   final bool isVisible;
   final String title;
@@ -387,7 +392,7 @@ class _StatusToastState extends State<StatusToast>
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: widget.backgroundColor ?? 
+                      color: widget.backgroundColor ??
                           const Color(0xFFdc2626).withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(16),
                     ),

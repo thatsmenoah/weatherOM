@@ -43,3 +43,49 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ДОБАВЬ ЭТИ СТРОКИ:
+# VS Code
+.vscode/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# MacOS
+.DS_Store
+*.dSYM
+*.app
+*.framework
+*.xcodeproj
+*.xcworkspace
+
+# Android (дополнительно)
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/build/
+android/build/
+
+# iOS (дополнительно)
+ios/Pods/
+ios/Podfile.lock
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.*
+ios/*.xcworkspace/
+ios/*.xcuserstate/
+ios/Flutter/.last_build_id
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+
+# Logs
+*.log
+*.tmp
+*.pid
+*.seed
+*.pid.lock

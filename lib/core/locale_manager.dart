@@ -5,7 +5,7 @@ class LocaleManager {
   factory LocaleManager() => _instance;
   LocaleManager._internal();
   
-  String _currentLocale = 'Русский';
+  String _currentLocale = 'Английский';
   
   // Все переводы
   static const Map<String, Map<String, String>> _translations = {
@@ -123,13 +123,15 @@ class LocaleManager {
       
       // ============ НАПРАВЛЕНИЯ ВЕТРА ============
       'n': 'Север',
-      'ne': 'Северо-Восток',
+      'ne': 'С-В',
       'e': 'Восток',
-      'se': 'Юго-Восток',
+      'se': 'Ю-В',
       's': 'Юг',
-      'sw': 'Юго-Запад',
+      'sw': 'Ю-З',
       'w': 'Запад',
-      'nw': 'Северо-Запад',
+      'nw': 'С-З',
+      'ms': 'm/s',
+      'mm': 'мм',
       
       // ============ ОПИСАНИЯ ПОГОДЫ ============
       'clear_sky': 'Ясное небо',
@@ -425,12 +427,14 @@ class LocaleManager {
       // ============ НАПРАВЛЕНИЯ ВЕТРА ============
       'n': 'North',
       'ne': 'N-E',
-      'e': 'East',
+      'e': 'East', 
       'se': 'S-E',
       's': 'South',
       'sw': 'S-W',
       'w': 'West',
       'nw': 'N-W',
+      'ms': 'm/s',
+      'mm': 'mm',
       
       // ============ ОПИСАНИЯ ПОГОДЫ ============
       'clear_sky': 'Clear sky',

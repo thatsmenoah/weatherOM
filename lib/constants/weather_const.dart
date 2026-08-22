@@ -86,7 +86,6 @@ class WeatherConst {
   // ПРОЧЕЕ
    
   static const double scrollThreshold = 250.0;
-  static const List<String> daysOfWeekFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
   static const double forecastIconSize = 24.0;
   static const double mainWeatherIconSize = 40.0;
   static const double tipIconSize = 22.0;
