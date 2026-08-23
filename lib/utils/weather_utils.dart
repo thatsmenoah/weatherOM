@@ -50,58 +50,41 @@ class WeatherUtils {
 
   // ==================== СТРЕЛКА НАПРАВЛЕНИЯ ВЕТРА ====================
 
-  /// Возвращает виджет-стрелку, указывающую направление ветра
-  /// degrees - направление ветра в градусах (0° = Север)
-  /// size - размер иконки
-  /// color - цвет иконки
   static Widget getWindArrow(double degrees, {double size = 16, Color? color}) {
-    // Поворачиваем стрелку так, чтобы она указывала КУДА дует ветер
-    // В метеорологии: 0° = Северный ветер (дует С СЕВЕРА)
-    // Для отображения направления (КУДА) - разворачиваем на 180°
     final rotation = (degrees - 180) * 3.14159 / 180;
-
     return Transform.rotate(
       angle: rotation,
       child: Icon(
-        Icons.navigation, // <--- ЗАМЕНИЛИ ИКОНКУ НА ЭТУ
+        Icons.navigation,
         size: size,
         color: color ?? Colors.grey.withValues(alpha: 0.8),
       ),
     );
   }
 
-  /// Возвращает угол поворота для стрелки (в радианах)
   static double getWindArrowRotation(double degrees) {
     return (degrees - 180) * 3.14159 / 180;
   }
 
-  /// Возвращает иконку стрелки в зависимости от направления
   static IconData getWindArrowIcon(double degrees) {
     return Icons.navigation;
   }
 
-  /// Возвращает символ стрелки для направления ветра
   static String getWindArrowSymbol(double degrees) {
-    // Нормализуем угол
     degrees = degrees % 360;
     if (degrees < 0) degrees += 360;
-
-    if (degrees >= 337.5 || degrees < 22.5) return '↑'; // Север
-    if (degrees >= 22.5 && degrees < 67.5) return '↗'; // Северо-восток
-    if (degrees >= 67.5 && degrees < 112.5) return '→'; // Восток
-    if (degrees >= 112.5 && degrees < 157.5) return '↘'; // Юго-восток
-    if (degrees >= 157.5 && degrees < 202.5) return '↓'; // Юг
-    if (degrees >= 202.5 && degrees < 247.5) return '↙'; // Юго-запад
-    if (degrees >= 247.5 && degrees < 292.5) return '←'; // Запад
-    if (degrees >= 292.5 && degrees < 337.5) return '↖'; // Северо-запад
+    if (degrees >= 337.5 || degrees < 22.5) return '↑';
+    if (degrees >= 22.5 && degrees < 67.5) return '↗';
+    if (degrees >= 67.5 && degrees < 112.5) return '→';
+    if (degrees >= 112.5 && degrees < 157.5) return '↘';
+    if (degrees >= 157.5 && degrees < 202.5) return '↓';
+    if (degrees >= 202.5 && degrees < 247.5) return '↙';
+    if (degrees >= 247.5 && degrees < 292.5) return '←';
+    if (degrees >= 292.5 && degrees < 337.5) return '↖';
     return '→';
   }
 
-  /// Возвращает текстовое описание направления ветра со стрелкой
-  static String getWindDirectionWithArrow(
-    int degrees,
-    LocaleManager localeManager,
-  ) {
+  static String getWindDirectionWithArrow(int degrees, LocaleManager localeManager) {
     final direction = getWindDirection(degrees, localeManager);
     final arrow = getWindArrowSymbol(degrees.toDouble());
     return '$direction $arrow';
@@ -109,7 +92,8 @@ class WeatherUtils {
 
   // ==================== КАЧЕСТВО ВОЗДУХА ====================
 
-  static String getAirQualityText(int aqi, LocaleManager localeManager) {
+  static String getAirQualityText(int? aqi, LocaleManager localeManager) {
+    if (aqi == null) return localeManager.getText('no_data');
     switch (aqi) {
       case 1:
         return localeManager.getText('air_excellent');
@@ -126,51 +110,37 @@ class WeatherUtils {
     }
   }
 
-  static Color getAirQualityColor(int aqi) {
+  static Color getAirQualityColor(int? aqi) {
     return Colors.white;
   }
 
   // ==================== КОРОТКОЕ ОПИСАНИЕ ПОГОДЫ ====================
 
-  static String getShortWeatherDescription(
-    String iconCode,
-    LocaleManager localeManager,
-  ) {
+  static String getShortWeatherDescription(String iconCode, LocaleManager localeManager) {
     switch (iconCode) {
       case '01d':
-        return localeManager.getText('desc_clear');
       case '01n':
         return localeManager.getText('desc_clear');
       case '02d':
-        return localeManager.getText('desc_cloudy');
       case '02n':
-        return localeManager.getText('desc_cloudy');
       case '03d':
-        return localeManager.getText('desc_cloudy');
       case '03n':
         return localeManager.getText('desc_cloudy');
       case '04d':
-        return localeManager.getText('desc_overcast');
       case '04n':
         return localeManager.getText('desc_overcast');
       case '09d':
-        return localeManager.getText('desc_rain');
       case '09n':
-        return localeManager.getText('desc_rain');
       case '10d':
-        return localeManager.getText('desc_rain');
       case '10n':
         return localeManager.getText('desc_rain');
       case '11d':
-        return localeManager.getText('desc_thunderstorm');
       case '11n':
         return localeManager.getText('desc_thunderstorm');
       case '13d':
-        return localeManager.getText('desc_snow');
       case '13n':
         return localeManager.getText('desc_snow');
       case '50d':
-        return localeManager.getText('desc_fog');
       case '50n':
         return localeManager.getText('desc_fog');
       default:
@@ -191,31 +161,23 @@ class WeatherUtils {
       case '02n':
         return Icons.nightlight_round;
       case '03d':
-        return Icons.cloud;
       case '03n':
-        return Icons.cloud;
       case '04d':
-        return Icons.cloud;
       case '04n':
         return Icons.cloud;
       case '09d':
-        return Icons.grain;
       case '09n':
         return Icons.grain;
       case '10d':
-        return Icons.beach_access;
       case '10n':
         return Icons.beach_access;
       case '11d':
-        return Icons.flash_on;
       case '11n':
         return Icons.flash_on;
       case '13d':
-        return Icons.ac_unit;
       case '13n':
         return Icons.ac_unit;
       case '50d':
-        return Icons.foggy;
       case '50n':
         return Icons.foggy;
       default:
@@ -236,11 +198,7 @@ class WeatherUtils {
     return text[0].toUpperCase() + text.substring(1);
   }
 
-  static String formatForecastTime(
-    DateTime time,
-    bool isNow,
-    LocaleManager localeManager,
-  ) {
+  static String formatForecastTime(DateTime time, bool isNow, LocaleManager localeManager) {
     return isNow ? localeManager.getText('now') : '${time.hour}:00';
   }
 
@@ -259,11 +217,7 @@ class WeatherUtils {
 
   static String formatTemp(num temp) => '${temp.round()}°';
 
-  static String formatTempWithFeelsLike(
-    num temp,
-    num feelsLike,
-    LocaleManager localeManager,
-  ) {
+  static String formatTempWithFeelsLike(num temp, num feelsLike, LocaleManager localeManager) {
     return '${temp.round()}° (${localeManager.getText('feels_like')} ${feelsLike.round()}°)';
   }
 
@@ -292,10 +246,7 @@ class WeatherUtils {
     return '${humidity.round()}%';
   }
 
-  static String formatPressure(
-    double pressureHpa,
-    LocaleManager localeManager,
-  ) {
+  static String formatPressure(double pressureHpa, LocaleManager localeManager) {
     return '${convertPressureToMmhg(pressureHpa).round()} ${localeManager.getText('mm')}';
   }
 
@@ -318,34 +269,28 @@ class WeatherUtils {
     final precipitation = _getPrecipitation(weatherData);
     final clouds = weatherData['clouds']['all'].toDouble();
 
-    double weatherScore = _calculateWeatherScore(
-      temp,
-      windSpeed,
-      precipitation,
-    );
-    final airScore = calculateAirQualityScore(airQualityData);
+    double weatherScore = _calculateWeatherScore(temp, windSpeed, precipitation);
+    final airScore = calculateAirQualityScore(airQualityData) ?? 5.0;
 
     double finalScore;
     switch (activity) {
       case 'running':
         finalScore = weatherScore * 0.6 + airScore * 0.4;
         if (temp >= 15 && temp <= 20) finalScore += 0.5;
-        if (windSpeed > 4) finalScore -= 0.5; // 15 км/ч ≈ 4 м/с
+        if (windSpeed > 4) finalScore -= 0.5;
         break;
       case 'cycling':
         finalScore = weatherScore * 0.55 + airScore * 0.45;
         if (windSpeed > 5.5) {
-          // 20 км/ч ≈ 5.5 м/с
           finalScore -= 1.0;
         } else if (windSpeed > 3.3) {
-          // 12 км/ч ≈ 3.3 м/с
           finalScore -= 0.5;
         }
         break;
       case 'walking':
         finalScore = weatherScore * 0.7 + airScore * 0.3;
         if (clouds <= 30 && temp >= 10 && temp <= 25) finalScore += 0.5;
-        if (windSpeed < 1.4) finalScore += 0.5; // 5 км/ч ≈ 1.4 м/с
+        if (windSpeed < 1.4) finalScore += 0.5;
         break;
       case 'photography':
         finalScore = weatherScore * 0.85 + airScore * 0.15;
@@ -377,11 +322,7 @@ class WeatherUtils {
     return 0.0;
   }
 
-  static double _calculateWeatherScore(
-    double temp,
-    double windSpeed,
-    double precipitation,
-  ) {
+  static double _calculateWeatherScore(double temp, double windSpeed, double precipitation) {
     double score = 5.0;
 
     if (temp >= 18 && temp <= 24) {
@@ -405,16 +346,12 @@ class WeatherUtils {
     }
 
     if (windSpeed > 7) {
-      // 25 км/ч ≈ 7 м/с
       score -= 3.0;
     } else if (windSpeed > 4) {
-      // 15 км/ч ≈ 4 м/с
       score -= 2.0;
     } else if (windSpeed > 2.7) {
-      // 10 км/ч ≈ 2.7 м/с
       score -= 1.0;
     } else if (windSpeed < 0.5) {
-      // 2 км/ч ≈ 0.5 м/с
       score += 0.5;
     }
 
@@ -431,9 +368,15 @@ class WeatherUtils {
     return score.clamp(0.0, 10.0);
   }
 
-  static double calculateAirQualityScore(Map<String, dynamic>? airQualityData) {
+  // 🔥 ИСПРАВЛЕНО: возвращаем null если нет данных
+  static double? calculateAirQualityScore(Map<String, dynamic>? airQualityData) {
     if (airQualityData == null || airQualityData['list'] == null) {
-      return 7.0;
+      return null;
+    }
+
+    final aqi = airQualityData['list'][0]['main']['aqi'];
+    if (aqi == null) {
+      return null;
     }
 
     final comp = airQualityData['list'][0]['components'];
@@ -472,14 +415,14 @@ class WeatherUtils {
       count++;
     }
 
-    // CO (мг/м³)
+    // CO (µg/m³)
     if (comp['co'] != null) {
-      final co = comp['co'].toDouble() / 1000;
-      if (co <= 5) {
+      final co = comp['co'].toDouble();
+      if (co <= 5000) {
         totalScore += 10.0;
-      } else if (co <= 10) {
+      } else if (co <= 10000) {
         totalScore += 7.0;
-      } else if (co <= 20) {
+      } else if (co <= 20000) {
         totalScore += 4.0;
       } else {
         totalScore += 1.0;
@@ -487,7 +430,7 @@ class WeatherUtils {
       count++;
     }
 
-    // NO2 (ppb)
+    // NO2 (µg/m³)
     if (comp['no2'] != null) {
       final no2 = comp['no2'].toDouble();
       if (no2 <= 20) {
@@ -502,7 +445,7 @@ class WeatherUtils {
       count++;
     }
 
-    // SO2 (ppb)
+    // SO2 (µg/m³)
     if (comp['so2'] != null) {
       final so2 = comp['so2'].toDouble();
       if (so2 <= 20) {
@@ -517,7 +460,7 @@ class WeatherUtils {
       count++;
     }
 
-    // O3 (ppb)
+    // O3 (µg/m³)
     if (comp['o3'] != null) {
       final o3 = comp['o3'].toDouble();
       if (o3 <= 30) {
@@ -532,13 +475,12 @@ class WeatherUtils {
       count++;
     }
 
-    return count > 0 ? (totalScore / count).clamp(0.0, 10.0) : 7.0;
+    if (count == 0) return null;
+    return (totalScore / count).clamp(0.0, 10.0);
   }
 
-  static String getAirQualityTextByScore(
-    double score,
-    LocaleManager localeManager,
-  ) {
+  static String getAirQualityTextByScore(double? score, LocaleManager localeManager) {
+    if (score == null) return localeManager.getText('no_data');
     if (score >= 8.5) return localeManager.getText('air_excellent');
     if (score >= 7.0) return localeManager.getText('air_good');
     if (score >= 5.0) return localeManager.getText('air_moderate');
@@ -546,7 +488,7 @@ class WeatherUtils {
     return localeManager.getText('air_very_poor');
   }
 
-  static Color getAirQualityColorByScore(double score) {
+  static Color getAirQualityColorByScore(double? score) {
     return Colors.white;
   }
 }

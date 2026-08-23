@@ -23,7 +23,7 @@ dependencies:
   shared_preferences: ^2.2.2
   image_picker: ^1.0.7
   dart_suncalc: ^0.2.1
-  flutter_dotenv: ^5.2.1   # <-- ПЕРЕНЁС СЮДА!
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -33,6 +33,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  # ===== ДОБАВЬ ЭТО =====
+  assets:
+    - .env
+  # ======================
 
 flutter_launcher_icons:
   android: true

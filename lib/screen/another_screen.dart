@@ -284,10 +284,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
       precipProb = (extra['precipitationProbability'] as num).toInt();
     }
 
-    // Используем готовую точку росы из _extra, если есть
     double? dewPoint = extra?['dewPoint'] as double?;
 
-    // Если нет — вычисляем сами
     if (dewPoint == null) {
       final temp = weather['main']?['temp'] ?? 0.0;
       final humidity = weather['main']?['humidity'] ?? 0.0;
@@ -316,7 +314,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
     };
   }
 
-  double _getAirQualityScore() => WeatherUtils.calculateAirQualityScore(airQualityData);
+  // 🔥 ИСПРАВЛЕНО: возвращаем null если нет данных
+  double? _getAirQualityScore() {
+    return WeatherUtils.calculateAirQualityScore(airQualityData);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -474,8 +475,81 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
+  // 🔥 НОВЫЙ МЕТОД: карточка "Нет данных"
+  Widget _buildNoDataCard({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  ),
+                  child: Icon(icon, color: Colors.white.withValues(alpha: 0.3), size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFa0a0a0),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAirQualitySection() {
     final airScore = _getAirQualityScore();
+    
+    // 🔥 ИСПРАВЛЕНО: если нет данных — показываем "Нет данных"
+    if (airScore == null) {
+      return _buildNoDataCard(
+        icon: Icons.air,
+        title: _localeManager.getText('air_quality_title'),
+        message: _localeManager.getText('no_data'),
+      );
+    }
+
     final comp = airQualityData!['list'][0]['components'];
 
     return TweenAnimationBuilder<double>(
@@ -567,15 +641,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
                     children: [
                       Expanded(child: _buildAirMetricCompact(
                         _localeManager.getText('co'),
-                        comp['co'] != null ? (comp['co'] / 1000).toStringAsFixed(1) : '--',
-                        'ppm',
+                        comp['co']?.toStringAsFixed(0) ?? '--',
+                        'µg/m³',
                         _localeManager.getText('co_desc')
                       )),
                       const SizedBox(width: 10),
                       Expanded(child: _buildAirMetricCompact(
                         _localeManager.getText('no2'),
                         comp['no2']?.toStringAsFixed(0) ?? '--',
-                        'ppb',
+                        'µg/m³',
                         _localeManager.getText('no2_desc')
                       )),
                     ],
@@ -586,14 +660,14 @@ class _ActivityScreenState extends State<ActivityScreen> {
                       Expanded(child: _buildAirMetricCompact(
                         _localeManager.getText('o3'),
                         comp['o3']?.toStringAsFixed(0) ?? '--',
-                        'ppb',
+                        'µg/m³',
                         _localeManager.getText('o3_desc')
                       )),
                       const SizedBox(width: 10),
                       Expanded(child: _buildAirMetricCompact(
                         _localeManager.getText('so2'),
                         comp['so2']?.toStringAsFixed(0) ?? '--',
-                        'ppb',
+                        'µg/m³',
                         _localeManager.getText('so2_desc')
                       )),
                     ],

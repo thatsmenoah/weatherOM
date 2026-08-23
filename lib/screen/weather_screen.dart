@@ -245,14 +245,14 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   void _updateTip() {
-    if (weatherData != null) {
-      _cachedTip = _tipsSystem.analyzeWeatherForTips(
-        weatherData,
-        forecastData,
-        context,
-      );
-    }
+  if (weatherData != null) {
+    _cachedTip = _tipsSystem.analyzeWeatherForTips(
+      weatherData,
+      forecastData,
+      sunData, // передаём sunData
+    );
   }
+}
 
   void _updateLocationText() {
     if (locationDetails != null) {
@@ -310,7 +310,9 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   Future<void> _saveToStorage() async {
-    debugPrint('Сохраняю в кеш: weather=${weatherData != null}, forecast=${forecastData != null}');
+    debugPrint(
+      'Сохраняю в кеш: weather=${weatherData != null}, forecast=${forecastData != null}',
+    );
     await _dataSystem.saveToCache(
       weatherData: weatherData,
       forecastData: forecastData,
@@ -322,21 +324,36 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   Future<void> _fetchFreshData() async {
-    try {
-      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+  try {
+    final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
 
-      if (!mounted) return;
+    if (!mounted) return;
 
-      if (response.hasError) {
-        if (weatherData != null) {
-          setState(() => _showStatusToast = true);
+    if (response.hasError) {
+      // 🔥 ПРАВИЛЬНО ОПРЕДЕЛЯЕМ ОФЛАЙН
+      final error = response.errorMessage ?? '';
+      final isOffline = error.contains('SocketException') ||
+          error.contains('TimeoutException') ||
+          error.contains('HandshakeException') ||
+          error.contains('Connection refused');
+
+      if (weatherData != null) {
+        setState(() => _showStatusToast = true);
+        if (isOffline) {
+          _loadingManager.setOfflineMode();
+        } else {
           _loadingManager.setError(_localeManager.getText('update_failed'));
+        }
+      } else {
+        if (isOffline) {
+          _loadingManager.setError(_localeManager.getText('no_internet'));
         } else {
           _loadingManager.setError(_localeManager.getText('error'));
-          if (mounted) setState(() {});
         }
-        return;
+        if (mounted) setState(() {});
       }
+      return;
+    }
 
       setState(() {
         weatherData = response.weather;
@@ -400,47 +417,63 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   void _loadAllFromStorage() {
-    final allData = _dataSystem.getAllCachedData();
-    debugPrint('Загружаю из кеша: data=${allData != null}');
+  // 🔥 ИСПОЛЬЗУЕМ getValidCache() вместо getAllCachedData()
+  final allData = _dataSystem.getValidCache();
+  debugPrint('Загружаю из кеша (валидный): data=${allData != null}');
 
-    if (allData != null) {
-      debugPrint('weather содержит ключи: ${allData['weather']?.keys}');
-      debugPrint('forecast содержит ключи: ${allData['forecast']?.keys}');
+  if (allData != null) {
+    debugPrint('weather содержит ключи: ${allData['weather']?.keys}');
+    debugPrint('forecast содержит ключи: ${allData['forecast']?.keys}');
 
+    setState(() {
       weatherData = allData['weather'];
       forecastData = allData['forecast'];
       airQualityData = allData['airQuality'];
       sunData = allData['sunData'];
       cityName = allData['city'] ?? _localeManager.getText('loading');
       locationDetails = allData['locationDetails'] as Map<String, dynamic>?;
-
-      if (locationDetails != null) {
-        final geoResult = GeocodingResult.fromMap(locationDetails!);
-        displayLocation = geoResult.displayName.isNotEmpty
-            ? geoResult.displayName
-            : cityName;
-        _updateLocationText();
-      } else {
-        displayLocation = cityName;
-        locationText = cityName;
-        subLocationText = null;
+      
+      // 🔥 ВОССТАНАВЛИВАЕМ lat/lon из кеша
+      if (allData.containsKey('lat') && allData['lat'] != null) {
+        lat = allData['lat'] as double?;
+        lon = allData['lon'] as double?;
       }
+    });
 
-      _updateTip();
-      final timestamp = allData['timestamp'];
-      if (timestamp != null && mounted) {
-        try {
-          final updateTime = DateTime.parse(timestamp.toString());
-          _loadingManager.setLastUpdateTime(updateTime);
-        } catch (_) {}
-      }
-
-      if (mounted) {
-        debugPrint('Обновляю UI из кеша');
-        setState(() {});
-      }
+    if (locationDetails != null) {
+      final geoResult = GeocodingResult.fromMap(locationDetails!);
+      displayLocation = geoResult.displayName.isNotEmpty
+          ? geoResult.displayName
+          : cityName;
+      _updateLocationText();
+    } else {
+      displayLocation = cityName;
+      locationText = cityName;
+      subLocationText = null;
     }
+
+    _updateTip();
+    
+    final timestamp = allData['timestamp'];
+    if (timestamp != null && mounted) {
+      try {
+        final updateTime = DateTime.parse(timestamp.toString());
+        _loadingManager.setLastUpdateTime(updateTime);
+        _loadingManager.finishLoading(fromStorage: true); // ← помечаем как из кеша
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      debugPrint('Обновляю UI из валидного кеша');
+      setState(() {});
+    }
+  } else {
+    // Кеш отсутствует или устарел
+    debugPrint('Валидный кеш отсутствует');
+    _loadingManager.startLoading();
+    if (mounted) setState(() {});
   }
+}
 
   void scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -860,59 +893,128 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   Widget _buildHourlyForecast() {
-    if (forecastData == null) return const SizedBox.shrink();
-    List<dynamic> list = forecastData!['list'];
-    List<Widget> hourlyWidgets = [];
+  if (forecastData == null) return const SizedBox.shrink();
+  List<dynamic> list = forecastData!['list'];
+  List<Widget> hourlyWidgets = [];
 
-    for (int i = 0; i < 8 && i < list.length; i++) {
-      var item = list[i];
-      DateTime time = DateTime.parse(item['dt_txt']).toLocal();
-      bool isNow = i == 0;
+  for (int i = 0; i < 8 && i < list.length; i++) {
+    var item = list[i];
+    DateTime time = DateTime.parse(item['dt_txt']).toLocal();
+    bool isNow = i == 0;
 
-      String hour;
-      if (isNow) {
-        hour = _localeManager.getText('now');
-      } else {
-        hour = TimeUtils.formatTimeShort(context, time);
-      }
-
-      double temp = item['main']['temp'];
-      String iconCode = item['weather'][0]['icon'];
-      String shortDesc = WeatherUtils.getShortWeatherDescription(
-        iconCode,
-        _localeManager,
-      );
-      double? pop = item['pop'] as double?;
-      int? popPercent;
-      if (pop != null) {
-        popPercent = (pop * 100).round();
-      }
-
-      hourlyWidgets.add(
-        FadeInWrapper(
-          duration: Duration(milliseconds: 300 + (i * 50)),
-          offsetY: 20,
-          child: _forecastItem(
-            hour,
-            shortDesc,
-            iconCode,
-            WeatherUtils.formatTemp(temp),
-            pop: popPercent,
-          ),
-        ),
-      );
+    String hour;
+    if (isNow) {
+      hour = _localeManager.getText('now');
+    } else {
+      hour = TimeUtils.formatTimeShort(context, time);
     }
-    return Column(children: hourlyWidgets);
+
+    double temp = item['main']['temp'];
+    String iconCode = item['weather'][0]['icon'];
+    String shortDesc = WeatherUtils.getShortWeatherDescription(
+      iconCode,
+      _localeManager,
+    );
+    
+    // ===== ИСПРАВЛЕНИЕ: не умножаем на 100 =====
+    double? pop = item['pop'] as double?;
+    int? popPercent;
+    if (pop != null && pop > 0) {
+      popPercent = pop.round();  // ← уже проценты
+    }
+    // =========================================
+
+    hourlyWidgets.add(
+      FadeInWrapper(
+        duration: Duration(milliseconds: 300 + (i * 50)),
+        offsetY: 20,
+        child: _forecastItem(
+          hour,
+          shortDesc,
+          iconCode,
+          WeatherUtils.formatTemp(temp),
+          pop: popPercent,
+        ),
+      ),
+    );
   }
+  return Column(children: hourlyWidgets);
+}
 
   Widget _buildDailyForecast() {
     if (forecastData == null) return const SizedBox.shrink();
 
+    final dailyList = forecastData!['daily'] as List? ?? [];
+    if (dailyList.isEmpty) {
+      return _buildDailyForecastFallback();
+    }
+
+    List<Widget> dailyWidgets = [];
+    for (int i = 0; i < dailyList.length && i < 7; i++) {
+      final item = dailyList[i];
+      final dateStr = item['dt'] as String;
+      final dateTime = DateTime.tryParse(dateStr);
+      if (dateTime == null) continue;
+
+      final avgTemp = (item['temp_max'] + item['temp_min']) / 2;
+      final weatherCode = item['weathercode'] as int;
+      final iconCode = _getWeatherIconFromCode(weatherCode);
+      final pop = item['precipitation_probability'] as int? ?? 0;
+
+      String label = i == 0
+          ? _localeManager.getText('today')
+          : i == 1
+          ? _localeManager.getText('tomorrow')
+          : WeatherUtils.getWeekday(dateTime, _localeManager);
+
+      String shortDesc = WeatherUtils.getShortWeatherDescription(
+        _getWeatherIconFromCode(weatherCode),
+        _localeManager,
+      );
+
+      dailyWidgets.add(
+        FadeInWrapper(
+          duration: Duration(milliseconds: 300 + (i * 50)),
+          offsetY: 20,
+          child: _forecastItem(
+            label,
+            shortDesc,
+            iconCode,
+            WeatherUtils.formatTemp(avgTemp),
+            isDaily: true,
+            pop: pop,
+          ),
+        ),
+      );
+    }
+    return Column(children: dailyWidgets);
+  }
+
+  String _getWeatherIconFromCode(int code) {
+    if (code == 0) return '01d';
+    if (code == 1) return '02d';
+    if (code == 2) return '03d';
+    if (code == 3) return '04d';
+    if (code >= 45 && code <= 48) return '50d';
+    if ((code >= 51 && code <= 57) || (code >= 61 && code <= 67)) return '10d';
+    if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return '13d';
+    if (code >= 80 && code <= 82) return '09d';
+    if (code >= 95 && code <= 99) return '11d';
+    return '01d';
+  }
+
+  Widget _buildDailyForecastFallback() {
     Map<String, List<Map<String, dynamic>>> groupedByDay = {};
     List<dynamic> list = forecastData!['list'];
 
     for (var item in list) {
-      String date = item['dt_txt'].split(' ')[0];
+      String dtTxt = item['dt_txt'];
+      String date;
+      if (dtTxt.contains('T')) {
+        date = dtTxt.split('T')[0];
+      } else {
+        date = dtTxt.split(' ')[0];
+      }
       groupedByDay.putIfAbsent(date, () => []).add(item);
     }
 
@@ -928,7 +1030,7 @@ class WeatherScreenState extends State<WeatherScreen>
       for (var item in items) {
         totalTemp += item['main']['temp'];
         if (item['pop'] != null) {
-          double pop = (item['pop'] as double) * 100;
+          double pop = (item['pop'] as double);
           if (pop > maxPop) maxPop = pop;
         }
         if (iconCode.isEmpty) {
@@ -942,9 +1044,7 @@ class WeatherScreenState extends State<WeatherScreen>
       DateTime dateTime = DateTime.parse(date);
       String weekday = WeatherUtils.getWeekday(dateTime, _localeManager);
       String label = WeatherUtils.getDailyForecastLabel(index, _localeManager);
-      if (label.isNotEmpty) {
-        weekday = label;
-      }
+      if (label.isNotEmpty) weekday = label;
 
       String shortDesc = WeatherUtils.getShortWeatherDescription(
         iconCode,
@@ -1113,11 +1213,14 @@ class WeatherScreenState extends State<WeatherScreen>
 
   Widget _buildAirQualityContent() {
     if (airQualityData == null) return const SizedBox.shrink();
-    int aqi = 2;
+    int? aqi;
     String aqiText = _localeManager.getText('no_data');
+
     if (airQualityData!['list'] != null && airQualityData!['list'].isNotEmpty) {
-      aqi = airQualityData!['list'][0]['main']['aqi'];
-      aqiText = WeatherUtils.getAirQualityText(aqi, _localeManager);
+      aqi = airQualityData!['list'][0]['main']['aqi'] as int?;
+      if (aqi != null) {
+        aqiText = WeatherUtils.getAirQualityText(aqi, _localeManager);
+      }
     }
     return Stack(
       children: [

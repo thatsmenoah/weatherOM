@@ -1,33 +1,49 @@
 import 'package:flutter/material.dart';
 import '../core/locale_manager.dart';
-import '../utils/time_utils.dart';
 
 class TipsSystem {
   
   Map<String, dynamic>? analyzeWeatherForTips(
     Map<String, dynamic>? weatherData, 
     Map<String, dynamic>? forecastData,
-    BuildContext context,
+    Map<String, dynamic>? sunData, // ← НОВЫЙ ПАРАМЕТР
   ) {
     if (weatherData == null) return null;
     
     final localeManager = LocaleManager();
     final now = DateTime.now();
     
-    // ✅ БЕРЁМ ДАННЫЕ СОЛНЦА ИЗ weatherData['_extra'] (OM ФОРМАТ)
-    final sunrise = weatherData['_extra']?['sunrise'] as DateTime?;
-    final sunset = weatherData['_extra']?['sunset'] as DateTime?;
+    // 🔥 ИСПОЛЬЗУЕМ sunData вместо weatherData['_extra']
+    DateTime? sunrise;
+    DateTime? sunset;
+    
+    if (sunData != null) {
+      final sunriseRaw = sunData['sunrise'];
+      final sunsetRaw = sunData['sunset'];
+      
+      if (sunriseRaw is DateTime) {
+        sunrise = sunriseRaw;
+      } else if (sunriseRaw is String) {
+        sunrise = DateTime.tryParse(sunriseRaw);
+      }
+      
+      if (sunsetRaw is DateTime) {
+        sunset = sunsetRaw;
+      } else if (sunsetRaw is String) {
+        sunset = DateTime.tryParse(sunsetRaw);
+      }
+    }
     
     if (sunrise != null && sunset != null) {
       final timeToSunrise = sunrise.difference(now).inHours;
       final timeToSunset = sunset.difference(now).inHours;
       
       if (timeToSunrise >= 0 && timeToSunrise < 1) {
-        return _createSunriseTip(sunrise, localeManager, context);
+        return _createSunriseTip(sunrise, localeManager);
       }
       
       if (timeToSunset >= 0 && timeToSunset < 1) {
-        return _createSunsetTip(sunset, localeManager, context);
+        return _createSunsetTip(sunset, localeManager);
       }
     }
     
@@ -92,6 +108,10 @@ class TipsSystem {
     return 'evening';
   }
   
+  String _formatTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+  
   Map<String, dynamic> _createSnowTip(LocaleManager localeManager) {
     final messages = [
       localeManager.getText('tip_snow_msg1'),
@@ -110,7 +130,7 @@ class TipsSystem {
   }
   
   Map<String, dynamic> _createRainTip(Map<String, dynamic> hourData, LocaleManager localeManager) {
-    final pop = (hourData['pop'] ?? 0.5) * 100;
+    final pop = (hourData['pop'] ?? 0.5);
     
     final messages = [
       localeManager.getText('tip_rain_msg1'),
@@ -141,7 +161,6 @@ class TipsSystem {
   Map<String, dynamic> _createSunriseTip(
     DateTime sunrise, 
     LocaleManager localeManager,
-    BuildContext context,
   ) {
     final messages = [
       localeManager.getText('tip_sunrise_msg1'),
@@ -153,7 +172,7 @@ class TipsSystem {
       'type': 'sunrise',
       'title': localeManager.getText('tip_sunrise_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': '${localeManager.getText('sunrise')} ${TimeUtils.formatTime(context, sunrise)}',
+      'time': '${localeManager.getText('sunrise')} ${_formatTime(sunrise)}',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.wb_sunny,
     };
@@ -162,7 +181,6 @@ class TipsSystem {
   Map<String, dynamic> _createSunsetTip(
     DateTime sunset, 
     LocaleManager localeManager,
-    BuildContext context,
   ) {
     final messages = [
       localeManager.getText('tip_sunset_msg1'),
@@ -173,7 +191,7 @@ class TipsSystem {
       'type': 'sunset',
       'title': localeManager.getText('tip_sunset_title'),
       'message': messages[DateTime.now().millisecond % messages.length],
-      'time': '${localeManager.getText('sunset')} ${TimeUtils.formatTime(context, sunset)}',
+      'time': '${localeManager.getText('sunset')} ${_formatTime(sunset)}',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.nightlight_round,
     };

@@ -205,7 +205,8 @@ class WeatherService {
         'windspeed_10m,winddirection_10m,pressure_msl,weathercode,visibility'
         '&wind_speed_unit=ms'
         '&hourly=temperature_2m,relativehumidity_2m,windspeed_10m,winddirection_10m,'
-        'pressure_msl,weathercode,visibility,apparent_temperature'
+        'pressure_msl,weathercode,visibility,apparent_temperature,'
+        'precipitation_probability'
         '&daily=weathercode,temperature_2m_max,temperature_2m_min,'
         'sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,'
         'windspeed_10m_max,winddirection_10m_dominant'
@@ -445,37 +446,48 @@ class WeatherService {
 
   static Map<String, dynamic> _normalizeForecast(Map<String, dynamic> data) {
     final hourly = data['hourly'] ?? {};
+    final daily = data['daily'] ?? {};
     final times = hourly['time'] as List?;
     final rawWeatherCodes = (hourly['weathercode'] as List?)
         ?.map((e) => (e as num).toInt())
         .toList() ?? [];
     final smoothCodes = _smoothWeatherCodes(rawWeatherCodes);
-    if (rawWeatherCodes.isNotEmpty && smoothCodes.isNotEmpty) {
-      debugPrint('Weather code smoothing:');
-      debugPrint('  Before: ${rawWeatherCodes.take(12).join(', ')}...');
-      debugPrint('  After: ${smoothCodes.take(12).join(', ')}...');
-    }
+    
+    final precipProbs = hourly['precipitation_probability'] as List?;
+
+    // 🔥 ПОЛУЧАЕМ СМЕЩЕНИЕ ТАЙМЗОНЫ
+    final utcOffsetSeconds = data['utc_offset_seconds'] as int? ?? 0;
+    final offsetDuration = Duration(seconds: utcOffsetSeconds);
+    
+    // 🔥 ТЕКУЩЕЕ ВРЕМЯ В ТАЙМЗОНЕ ЛОКАЦИИ
+    final nowInLocation = DateTime.now().toUtc().add(offsetDuration);
+
     final forecastList = <Map<String, dynamic>>[];
     if (times != null) {
-      final now = DateTime.now();
       int startIndex = 0;
       for (int i = 0; i < times.length; i++) {
         try {
-          final time = DateTime.parse(times[i]);
-          if (time.hour > now.hour || (time.hour == now.hour && time.minute > now.minute)) {
+          // 🔥 ПАРСИМ КАК UTC
+          final time = DateTime.parse(times[i] + 'Z');
+          // 🔥 СРАВНИВАЕМ С ВРЕМЕНЕМ В ЛОКАЦИИ
+          if (time.isAfter(nowInLocation)) {
             startIndex = i;
             break;
           }
         } catch (_) {}
       }
+      
+      // Если startIndex слишком близко к концу — отступаем
       if (startIndex + 8 > times.length) {
         startIndex = times.length - 8;
         if (startIndex < 0) startIndex = 0;
       }
-      final int maxHours = 24;
+      
+      final int maxHours = 168; // 7 дней
       final int endIndexCalc = (startIndex + maxHours < times.length)
           ? startIndex + maxHours
           : times.length;
+          
       for (int i = startIndex; i < endIndexCalc && i < times.length; i++) {
         final dtTxt = times[i];
         final temp = _toDouble(hourly['temperature_2m']?[i] ?? 0);
@@ -487,6 +499,12 @@ class WeatherService {
         final weatherCode = i < smoothCodes.length
             ? smoothCodes[i]
             : (hourly['weathercode']?[i] as num?)?.toInt() ?? 0;
+        
+        double pop = 0.0;
+        if (precipProbs != null && i < precipProbs.length) {
+          pop = (precipProbs[i] as num?)?.toDouble() ?? 0.0;
+        }
+
         forecastList.add({
           'dt_txt': dtTxt,
           'main': {
@@ -508,12 +526,39 @@ class WeatherService {
           },
           'clouds': {'all': 0},
           'visibility': 10000,
-          'pop': 0.0,
+          'pop': pop,
           'dt': 0,
         });
       }
     }
-    return {'list': forecastList};
+
+    // ===== daily данные =====
+    final dailyList = <Map<String, dynamic>>[];
+    if (daily['time'] != null && daily['time'] is List) {
+      final dailyTimes = daily['time'] as List;
+      final count = dailyTimes.length > 7 ? 7 : dailyTimes.length;
+      for (int i = 0; i < count; i++) {
+        dailyList.add({
+          'dt': dailyTimes[i],
+          'weathercode': daily['weathercode']?[i] ?? 0,
+          'temp_max': _toDouble(daily['temperature_2m_max']?[i] ?? 0),
+          'temp_min': _toDouble(daily['temperature_2m_min']?[i] ?? 0),
+          'sunrise': daily['sunrise']?[i],
+          'sunset': daily['sunset']?[i],
+          'uv_index': _toDouble(daily['uv_index_max']?[i] ?? 0),
+          'precipitation_sum': _toDouble(daily['precipitation_sum']?[i] ?? 0),
+          'precipitation_probability': (daily['precipitation_probability_max']?[i] as num?)?.toInt() ?? 0,
+          'wind_speed_max': _toDouble(daily['windspeed_10m_max']?[i] ?? 0),
+          'wind_direction': _toInt(daily['winddirection_10m_dominant']?[i] ?? 0),
+        });
+      }
+    }
+    // ==================================
+
+    return {
+      'list': forecastList,
+      'daily': dailyList,
+    };
   }
 
   static Map<String, dynamic> _normalizeAirQuality(Map<String, dynamic> data) {
@@ -525,19 +570,25 @@ class WeatherService {
     final no2 = hourly['nitrogen_dioxide'] as List?;
     final so2 = hourly['sulphur_dioxide'] as List?;
     final o3 = hourly['ozone'] as List?;
+    
+    // 🔥 ПОЛУЧАЕМ СМЕЩЕНИЕ ТАЙМЗОНЫ
+    final utcOffsetSeconds = data['utc_offset_seconds'] as int? ?? 0;
+    final offsetDuration = Duration(seconds: utcOffsetSeconds);
+    final nowInLocation = DateTime.now().toUtc().add(offsetDuration);
+    
     int currentIndex = 0;
     if (times != null && times.isNotEmpty) {
-      final now = DateTime.now();
       for (int i = 0; i < times.length; i++) {
         try {
-          final time = DateTime.parse(times[i]);
-          if (time.hour <= now.hour || i == times.length - 1) {
+          final time = DateTime.parse(times[i] + 'Z');
+          if (time.isBefore(nowInLocation) || i == times.length - 1) {
             currentIndex = i;
           }
-          if (time.hour > now.hour) break;
+          if (time.isAfter(nowInLocation)) break;
         } catch (_) {}
       }
     }
+    
     double getValue(List? list, int index) {
       if (list == null || index >= list.length) return 0.0;
       final val = list[index];
@@ -582,15 +633,15 @@ class WeatherService {
     return {
       'list': [
         {
-          'main': {'aqi': 2},
+          'main': {'aqi': null},
           'components': {
-            'pm2_5': 0.0,
-            'pm10': 0.0,
-            'co': 0.0,
-            'no2': 0.0,
-            'so2': 0.0,
-            'o3': 0.0,
-            'nh3': 0.0,
+            'pm2_5': null,
+            'pm10': null,
+            'co': null,
+            'no2': null,
+            'so2': null,
+            'o3': null,
+            'nh3': null,
           }
         }
       ]
@@ -618,20 +669,26 @@ class WeatherService {
     try {
       final daily = data['daily'] ?? {};
       final hourly = data['hourly'] ?? {};
-      final now = DateTime.now();
+      
+      // 🔥 ПОЛУЧАЕМ СМЕЩЕНИЕ ТАЙМЗОНЫ
+      final utcOffsetSeconds = data['utc_offset_seconds'] as int? ?? 0;
+      final offsetDuration = Duration(seconds: utcOffsetSeconds);
+      final nowInLocation = DateTime.now().toUtc().add(offsetDuration);
+      
       int currentHourIndex = 0;
       if (hourly['time'] != null && hourly['time'] is List) {
         final times = hourly['time'] as List;
         for (int i = 0; i < times.length; i++) {
           try {
-            final time = DateTime.parse(times[i]);
-            if (time.hour <= now.hour || i == times.length - 1) {
+            final time = DateTime.parse(times[i] + 'Z');
+            if (time.isBefore(nowInLocation) || i == times.length - 1) {
               currentHourIndex = i;
             }
-            if (time.hour > now.hour) break;
+            if (time.isAfter(nowInLocation)) break;
           } catch (_) {}
         }
       }
+      
       double? dewPoint;
       if (hourly['temperature_2m'] != null &&
           hourly['relativehumidity_2m'] != null &&
@@ -650,10 +707,12 @@ class WeatherService {
           }
         }
       }
+      
       double? uvIndex;
       if (daily['uv_index_max']?.isNotEmpty == true) {
         uvIndex = _toDouble(daily['uv_index_max'][0]);
       }
+      
       double? visibility;
       if (hourly['visibility'] != null && hourly['visibility'] is List) {
         final visibilityList = hourly['visibility'] as List;
@@ -662,10 +721,12 @@ class WeatherService {
           if (val > 0) visibility = val;
         }
       }
+      
       int? precipProb;
       if (daily['precipitation_probability_max']?.isNotEmpty == true) {
         precipProb = (daily['precipitation_probability_max'][0] as num).toInt();
       }
+      
       return {
         'dewPoint': dewPoint,
         'visibility': visibility,

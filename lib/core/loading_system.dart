@@ -108,17 +108,7 @@ class UpdateTimeIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localeManager = LocaleManager();
-    final String displayText;
-    final IconData displayIcon;
-
-    if (isFromCache) {
-      displayText = '${localeManager.getText('cached_data')} • ${_formatTime(context)}';
-      displayIcon = Icons.storage;
-    } else {
-      displayText = _formatTime(context);
-      displayIcon = Icons.update;
-    }
+    final displayText = _formatTime(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -134,7 +124,7 @@ class UpdateTimeIndicator extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            displayIcon,
+            Icons.update,
             size: 11,
             color: Colors.white.withValues(alpha: 0.5),
           ),
