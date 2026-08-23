@@ -9,6 +9,7 @@ import '../constants/weather_const.dart';
 import '../widgets/move_sun.dart';
 import '../utils/time_utils.dart';
 import '../core/locale_manager.dart';
+import '../widgets/error_dialog.dart';
 
 // ============================================================
 // АНИМИРОВАННАЯ КАРТОЧКА СОВЕТА
@@ -203,6 +204,7 @@ class WeatherScreenState extends State<WeatherScreen>
 
   bool _showStatusToast = false;
   bool _showCompactHeader = false;
+  bool _isUsingFallbackLocation = false;
 
   Map<String, dynamic>? _cachedTip;
   bool _isInitialized = false;
@@ -245,14 +247,14 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   void _updateTip() {
-  if (weatherData != null) {
-    _cachedTip = _tipsSystem.analyzeWeatherForTips(
-      weatherData,
-      forecastData,
-      sunData, // передаём sunData
-    );
+    if (weatherData != null) {
+      _cachedTip = _tipsSystem.analyzeWeatherForTips(
+        weatherData,
+        forecastData,
+        sunData,
+      );
+    }
   }
-}
 
   void _updateLocationText() {
     if (locationDetails != null) {
@@ -282,7 +284,6 @@ class WeatherScreenState extends State<WeatherScreen>
     await _dataSystem.init();
     debugPrint('DataSystem инициализирован');
 
-    // 🔥 УБРАЛ FavoritesStorage — используем только кеш и геолокацию
     _loadAllFromStorage();
 
     if (weatherData == null) {
@@ -302,9 +303,15 @@ class WeatherScreenState extends State<WeatherScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      // 🔥 УБРАЛ FavoritesStorage — просто используем Москву как fallback
+
+      // 🔥 ПОКАЗЫВАЕМ ДИАЛОГ ТОЛЬКО ЕСЛИ НЕТ КЕША
+      if (weatherData == null) {
+        await showLocationErrorDialog(context);
+      }
+
       lat ??= 55.7558;
       lon ??= 37.6173;
+      _isUsingFallbackLocation = true;
     }
     await _fetchFreshData();
   }
@@ -319,41 +326,42 @@ class WeatherScreenState extends State<WeatherScreen>
       airQualityData: airQualityData,
       sunData: sunData,
       cityName: cityName,
+      lat: lat,
+      lon: lon,
       locationDetails: locationDetails,
     );
   }
 
   Future<void> _fetchFreshData() async {
-  try {
-    final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+    try {
+      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (response.hasError) {
-      // 🔥 ПРАВИЛЬНО ОПРЕДЕЛЯЕМ ОФЛАЙН
-      final error = response.errorMessage ?? '';
-      final isOffline = error.contains('SocketException') ||
-          error.contains('TimeoutException') ||
-          error.contains('HandshakeException') ||
-          error.contains('Connection refused');
+      if (response.hasError) {
+        final error = response.errorMessage ?? '';
+        final isOffline = error.contains('SocketException') ||
+            error.contains('TimeoutException') ||
+            error.contains('HandshakeException') ||
+            error.contains('Connection refused');
 
-      if (weatherData != null) {
-        setState(() => _showStatusToast = true);
-        if (isOffline) {
-          _loadingManager.setOfflineMode();
+        if (weatherData != null) {
+          setState(() => _showStatusToast = true);
+          if (isOffline) {
+            _loadingManager.setOfflineMode();
+          } else {
+            _loadingManager.setError(_localeManager.getText('update_failed'));
+          }
         } else {
-          _loadingManager.setError(_localeManager.getText('update_failed'));
+          if (isOffline) {
+            _loadingManager.setError(_localeManager.getText('no_internet'));
+          } else {
+            _loadingManager.setError(_localeManager.getText('error'));
+          }
+          if (mounted) setState(() {});
         }
-      } else {
-        if (isOffline) {
-          _loadingManager.setError(_localeManager.getText('no_internet'));
-        } else {
-          _loadingManager.setError(_localeManager.getText('error'));
-        }
-        if (mounted) setState(() {});
+        return;
       }
-      return;
-    }
 
       setState(() {
         weatherData = response.weather;
@@ -361,6 +369,7 @@ class WeatherScreenState extends State<WeatherScreen>
         airQualityData = response.airQuality;
         sunData = response.sunData;
         locationDetails = response.locationDetails;
+        _isUsingFallbackLocation = false;
         _updateDisplayLocation(response);
         _updateLocationText();
         cityName =
@@ -417,63 +426,60 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   void _loadAllFromStorage() {
-  // 🔥 ИСПОЛЬЗУЕМ getValidCache() вместо getAllCachedData()
-  final allData = _dataSystem.getValidCache();
-  debugPrint('Загружаю из кеша (валидный): data=${allData != null}');
+    final allData = _dataSystem.getValidCache();
+    debugPrint('Загружаю из кеша (валидный): data=${allData != null}');
 
-  if (allData != null) {
-    debugPrint('weather содержит ключи: ${allData['weather']?.keys}');
-    debugPrint('forecast содержит ключи: ${allData['forecast']?.keys}');
+    if (allData != null) {
+      debugPrint('weather содержит ключи: ${allData['weather']?.keys}');
+      debugPrint('forecast содержит ключи: ${allData['forecast']?.keys}');
 
-    setState(() {
-      weatherData = allData['weather'];
-      forecastData = allData['forecast'];
-      airQualityData = allData['airQuality'];
-      sunData = allData['sunData'];
-      cityName = allData['city'] ?? _localeManager.getText('loading');
-      locationDetails = allData['locationDetails'] as Map<String, dynamic>?;
-      
-      // 🔥 ВОССТАНАВЛИВАЕМ lat/lon из кеша
-      if (allData.containsKey('lat') && allData['lat'] != null) {
-        lat = allData['lat'] as double?;
-        lon = allData['lon'] as double?;
+      setState(() {
+        weatherData = allData['weather'];
+        forecastData = allData['forecast'];
+        airQualityData = allData['airQuality'];
+        sunData = allData['sunData'];
+        cityName = allData['city'] ?? _localeManager.getText('loading');
+        locationDetails = allData['locationDetails'] as Map<String, dynamic>?;
+
+        if (allData.containsKey('lat') && allData['lat'] != null) {
+          lat = allData['lat'] as double?;
+          lon = allData['lon'] as double?;
+        }
+      });
+
+      if (locationDetails != null) {
+        final geoResult = GeocodingResult.fromMap(locationDetails!);
+        displayLocation = geoResult.displayName.isNotEmpty
+            ? geoResult.displayName
+            : cityName;
+        _updateLocationText();
+      } else {
+        displayLocation = cityName;
+        locationText = cityName;
+        subLocationText = null;
       }
-    });
 
-    if (locationDetails != null) {
-      final geoResult = GeocodingResult.fromMap(locationDetails!);
-      displayLocation = geoResult.displayName.isNotEmpty
-          ? geoResult.displayName
-          : cityName;
-      _updateLocationText();
+      _updateTip();
+
+      final timestamp = allData['timestamp'];
+      if (timestamp != null && mounted) {
+        try {
+          final updateTime = DateTime.parse(timestamp.toString());
+          _loadingManager.setLastUpdateTime(updateTime);
+          _loadingManager.finishLoading(fromStorage: true);
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        debugPrint('Обновляю UI из валидного кеша');
+        setState(() {});
+      }
     } else {
-      displayLocation = cityName;
-      locationText = cityName;
-      subLocationText = null;
+      debugPrint('Валидный кеш отсутствует');
+      _loadingManager.startLoading();
+      if (mounted) setState(() {});
     }
-
-    _updateTip();
-    
-    final timestamp = allData['timestamp'];
-    if (timestamp != null && mounted) {
-      try {
-        final updateTime = DateTime.parse(timestamp.toString());
-        _loadingManager.setLastUpdateTime(updateTime);
-        _loadingManager.finishLoading(fromStorage: true); // ← помечаем как из кеша
-      } catch (_) {}
-    }
-
-    if (mounted) {
-      debugPrint('Обновляю UI из валидного кеша');
-      setState(() {});
-    }
-  } else {
-    // Кеш отсутствует или устарел
-    debugPrint('Валидный кеш отсутствует');
-    _loadingManager.startLoading();
-    if (mounted) setState(() {});
   }
-}
 
   void scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -497,6 +503,7 @@ class WeatherScreenState extends State<WeatherScreen>
       displayLocation = newCityName;
       locationText = newCityName;
       subLocationText = null;
+      _isUsingFallbackLocation = false;
       _showStatusToast = false;
     });
     _loadingManager.startLoading();
@@ -512,11 +519,15 @@ class WeatherScreenState extends State<WeatherScreen>
       if (!mounted) return;
       lat = position.latitude;
       lon = position.longitude;
+      _isUsingFallbackLocation = false;
     } catch (e) {
       if (!mounted) return;
-      // 🔥 УБРАЛ FavoritesStorage
+      if (weatherData == null) {
+        await showLocationErrorDialog(context);
+      }
       lat ??= 55.7558;
       lon ??= 37.6173;
+      _isUsingFallbackLocation = true;
     }
     await _fetchFreshData();
     _updateTip();
@@ -574,6 +585,45 @@ class WeatherScreenState extends State<WeatherScreen>
                           : _localeManager.getText('update_failed'),
                       onDismiss: () => setState(() => _showStatusToast = false),
                     ),
+                  ),
+                ),
+              ),
+            if (_isUsingFallbackLocation && weatherData != null)
+              Positioned(
+                bottom: 90,
+                left: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _localeManager.getText('fallback_location'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -893,53 +943,51 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   Widget _buildHourlyForecast() {
-  if (forecastData == null) return const SizedBox.shrink();
-  List<dynamic> list = forecastData!['list'];
-  List<Widget> hourlyWidgets = [];
+    if (forecastData == null) return const SizedBox.shrink();
+    List<dynamic> list = forecastData!['list'];
+    List<Widget> hourlyWidgets = [];
 
-  for (int i = 0; i < 8 && i < list.length; i++) {
-    var item = list[i];
-    DateTime time = DateTime.parse(item['dt_txt']).toLocal();
-    bool isNow = i == 0;
+    for (int i = 0; i < 8 && i < list.length; i++) {
+      var item = list[i];
+      DateTime time = DateTime.parse(item['dt_txt']).toLocal();
+      bool isNow = i == 0;
 
-    String hour;
-    if (isNow) {
-      hour = _localeManager.getText('now');
-    } else {
-      hour = TimeUtils.formatTimeShort(context, time);
-    }
+      String hour;
+      if (isNow) {
+        hour = _localeManager.getText('now');
+      } else {
+        hour = TimeUtils.formatTimeShort(context, time);
+      }
 
-    double temp = item['main']['temp'];
-    String iconCode = item['weather'][0]['icon'];
-    String shortDesc = WeatherUtils.getShortWeatherDescription(
-      iconCode,
-      _localeManager,
-    );
-    
-    // ===== ИСПРАВЛЕНИЕ: не умножаем на 100 =====
-    double? pop = item['pop'] as double?;
-    int? popPercent;
-    if (pop != null && pop > 0) {
-      popPercent = pop.round();  // ← уже проценты
-    }
-    // =========================================
+      double temp = item['main']['temp'];
+      String iconCode = item['weather'][0]['icon'];
+      String shortDesc = WeatherUtils.getShortWeatherDescription(
+        iconCode,
+        _localeManager,
+      );
 
-    hourlyWidgets.add(
-      FadeInWrapper(
-        duration: Duration(milliseconds: 300 + (i * 50)),
-        offsetY: 20,
-        child: _forecastItem(
-          hour,
-          shortDesc,
-          iconCode,
-          WeatherUtils.formatTemp(temp),
-          pop: popPercent,
+      double? pop = item['pop'] as double?;
+      int? popPercent;
+      if (pop != null && pop > 0) {
+        popPercent = pop.round();
+      }
+
+      hourlyWidgets.add(
+        FadeInWrapper(
+          duration: Duration(milliseconds: 300 + (i * 50)),
+          offsetY: 20,
+          child: _forecastItem(
+            hour,
+            shortDesc,
+            iconCode,
+            WeatherUtils.formatTemp(temp),
+            pop: popPercent,
+          ),
         ),
-      ),
-    );
+      );
+    }
+    return Column(children: hourlyWidgets);
   }
-  return Column(children: hourlyWidgets);
-}
 
   Widget _buildDailyForecast() {
     if (forecastData == null) return const SizedBox.shrink();
