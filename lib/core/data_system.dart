@@ -7,9 +7,6 @@ import '../core/locale_manager.dart';
 class DataSystem {
   final String _fileName;
   
-  static const int weatherCacheMinutes = 30;
-  static const int forecastCacheMinutes = 60;
-
   Map<String, dynamic>? _cachedData;
   DateTime? _lastUpdateTime;
 
@@ -19,35 +16,13 @@ class DataSystem {
   DateTime? get lastUpdateTime => _lastUpdateTime;
   Map<String, dynamic>? get cachedData => _cachedData;
 
-  bool get isWeatherValid {
-    if (_cachedData == null || _lastUpdateTime == null) return false;
-    return DateTime.now().difference(_lastUpdateTime!).inMinutes < weatherCacheMinutes;
-  }
-
-  bool get isForecastValid {
-    if (_cachedData == null || _lastUpdateTime == null) return false;
-    return DateTime.now().difference(_lastUpdateTime!).inMinutes < forecastCacheMinutes;
-  }
-
-  bool get isAirQualityValid {
-    if (_cachedData == null || _lastUpdateTime == null) return false;
-    return DateTime.now().difference(_lastUpdateTime!).inMinutes < weatherCacheMinutes;
-  }
-
-  bool get isSunDataValid {
-    if (_cachedData == null || _lastUpdateTime == null) return false;
-    return DateTime.now().difference(_lastUpdateTime!).inMinutes < weatherCacheMinutes;
-  }
-
-  bool get isExtraMetricsValid {
-    if (_cachedData == null || _lastUpdateTime == null) return false;
-    return DateTime.now().difference(_lastUpdateTime!).inMinutes < weatherCacheMinutes;
-  }
-
-  bool get isLocationValid {
-    if (_cachedData == null || _lastUpdateTime == null) return false;
-    return DateTime.now().difference(_lastUpdateTime!).inMinutes < weatherCacheMinutes;
-  }
+  // Все данные всегда валидны, пока есть кеш
+  bool get isWeatherValid => _cachedData != null;
+  bool get isForecastValid => _cachedData != null;
+  bool get isAirQualityValid => _cachedData != null;
+  bool get isSunDataValid => _cachedData != null;
+  bool get isExtraMetricsValid => _cachedData != null;
+  bool get isLocationValid => _cachedData != null;
 
   Future<File> _getFile() async {
     final directory = await getApplicationDocumentsDirectory();
@@ -164,10 +139,7 @@ class DataSystem {
   }
 
   Map<String, dynamic>? getValidCache() {
-    if (isWeatherValid) {
-      return _cachedData;
-    }
-    return null;
+    return _cachedData; // Всегда возвращаем кеш, если он есть
   }
 
   Map<String, dynamic>? getAllCachedData() {
@@ -175,63 +147,63 @@ class DataSystem {
   }
 
   Map<String, dynamic>? getWeatherFromCache() {
-    if (isWeatherValid && _cachedData != null && _cachedData!.containsKey('weather')) {
+    if (_cachedData != null && _cachedData!.containsKey('weather')) {
       return _cachedData!['weather'];
     }
     return null;
   }
 
   Map<String, dynamic>? getForecastFromCache() {
-    if (isForecastValid && _cachedData != null && _cachedData!.containsKey('forecast')) {
+    if (_cachedData != null && _cachedData!.containsKey('forecast')) {
       return _cachedData!['forecast'];
     }
     return null;
   }
 
   Map<String, dynamic>? getAirQualityFromCache() {
-    if (isAirQualityValid && _cachedData != null && _cachedData!.containsKey('airQuality')) {
+    if (_cachedData != null && _cachedData!.containsKey('airQuality')) {
       return _cachedData!['airQuality'];
     }
     return null;
   }
 
   Map<String, dynamic>? getSunDataFromCache() {
-    if (isSunDataValid && _cachedData != null && _cachedData!.containsKey('sunData')) {
+    if (_cachedData != null && _cachedData!.containsKey('sunData')) {
       return _cachedData!['sunData'];
     }
     return null;
   }
 
   Map<String, dynamic>? getExtraMetricsFromCache() {
-    if (isExtraMetricsValid && _cachedData != null && _cachedData!.containsKey('extraMetrics')) {
+    if (_cachedData != null && _cachedData!.containsKey('extraMetrics')) {
       return _cachedData!['extraMetrics'];
     }
     return null;
   }
 
   String? getCityFromCache() {
-    if (isWeatherValid && _cachedData != null && _cachedData!.containsKey('city')) {
+    if (_cachedData != null && _cachedData!.containsKey('city')) {
       return _cachedData!['city'];
     }
     return null;
   }
 
   Map<String, dynamic>? getLocationDetailsFromCache() {
-    if (isLocationValid && _cachedData != null && _cachedData!.containsKey('locationDetails')) {
+    if (_cachedData != null && _cachedData!.containsKey('locationDetails')) {
       return _cachedData!['locationDetails'] as Map<String, dynamic>?;
     }
     return null;
   }
 
   double? getLatFromCache() {
-    if (isWeatherValid && _cachedData != null && _cachedData!.containsKey('lat')) {
+    if (_cachedData != null && _cachedData!.containsKey('lat')) {
       return _cachedData!['lat'] as double?;
     }
     return null;
   }
 
   double? getLonFromCache() {
-    if (isWeatherValid && _cachedData != null && _cachedData!.containsKey('lon')) {
+    if (_cachedData != null && _cachedData!.containsKey('lon')) {
       return _cachedData!['lon'] as double?;
     }
     return null;
@@ -255,9 +227,8 @@ class DataSystem {
     return '${difference.inDays} ${localeManager.getText('days_ago')}';
   }
 
+  // Метод больше не нужен, но оставляем для обратной совместимости
   double getCacheAgingProgress() {
-    if (!hasData || _lastUpdateTime == null) return 1.0;
-    final age = DateTime.now().difference(_lastUpdateTime!).inMinutes;
-    return (age / weatherCacheMinutes).clamp(0.0, 1.0);
+    return 0.0; // Всегда 0, так как кеш никогда не устаревает
   }
 }
