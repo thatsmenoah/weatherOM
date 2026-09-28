@@ -683,7 +683,8 @@ class ChangelogSheet extends StatelessWidget {
     final List<TextSpan> spans = [];
 
     for (final line in lines) {
-      if (line.startsWith('0.8.') && line.length < 10) {
+        if ((line.startsWith('0.8.') || line == '0.9.0 Beta' || line == '1.0.0pre-r') &&
+          line.length < 14) {
         spans.add(
           TextSpan(
             text: '$line\n',

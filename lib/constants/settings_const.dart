@@ -62,7 +62,7 @@ class SettingsConst {
   static const String telegramUsername = 'durovfm';
   // КОНЕЦ */
   static const String copyrightText = '© 2026 Weather Cloud';
-  static const String appVersion = 'Version 0.9.0';
+  static const String appVersion = 'Version 1.0.0pre-r';
 
   // ПЕРЕИСПОЛЬЗУЕМЫЕ БОРДЕРЫ
   static Border get defaultBorder => Border.all(color: Colors.white.withValues(alpha: 0.1));
@@ -71,9 +71,19 @@ class SettingsConst {
   static BorderSide get defaultBorderSide => BorderSide(color: Colors.white.withValues(alpha: 0.1));
 
   // CHANGELOG
-static const String changelogCurrentVersion = '0.9.0 Beta';
+static const String changelogCurrentVersion = '1.0.0pre-r';
 
 static const String changelogText = ''
+  // 1.0.0pre-r
+  '1.0.0pre-r\n'
+  'Release preparation update.\n\n'
+  '- Fixed weather icons for local day and night time.\n\n'
+  '- Fixed hourly forecast alignment and preserved real weather conditions.\n\n'
+  '- Added full-screen location search with recent locations and favorites.\n\n'
+  '- Added animated favorites panel and synchronized navigation transitions.\n\n'
+  '- Improved caching, offline behavior, localization, and timezone handling.\n\n'
+  '- Added transparent system bars and a deep black UI background.\n\n'
+
     // 0.9.0 Beta
     '0.9.0 Beta\n'
     'First public beta testing.\n\n'

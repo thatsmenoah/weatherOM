@@ -183,12 +183,18 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     if ((scrollOffset - _lastScrollOffset).abs() < _scrollThreshold) return;
 
     if (_currentIndex != 0) {
-      if (_showNav) {
+      if (isScrollingDown && _showNav) {
         setState(() {
           _showNav = false;
           _navSlideController.forward();
         });
+      } else if (!isScrollingDown && !_showNav) {
+        setState(() {
+          _showNav = true;
+          _navSlideController.reverse();
+        });
       }
+      _lastScrollOffset = scrollOffset;
       return;
     }
 
