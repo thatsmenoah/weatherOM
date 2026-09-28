@@ -4,7 +4,7 @@ class SettingsConst {
   SettingsConst._();
 
   // ЦВЕТА
-  static const Color bgScreen = Color(0xFF080808);
+  static const Color bgScreen = Color(0xFF000000);
   static const Color bgCard = Color(0x14FFFFFF); // 0.08
   static const Color bgButton = Color(0x0FFFFFFF); // 0.06
   static const Color bgButtonDisabled = Color(0x08FFFFFF); // 0.03
