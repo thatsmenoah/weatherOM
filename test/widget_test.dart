@@ -73,7 +73,6 @@ void main() {
   testWidgets('кнопка обновления строится во всех состояниях', (tester) async {
     for (final state in UpdatePillState.values) {
       var tapped = false;
-      var closed = false;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -85,7 +84,6 @@ void main() {
                   label: 'Обновление',
                   state: state,
                   onTap: () => tapped = true,
-                  onClose: () => closed = true,
                 ),
               ),
             ),
@@ -104,10 +102,6 @@ void main() {
       } else {
         expect(tapped, isTrue);
       }
-
-      await tester.tap(find.byIcon(Icons.close_rounded));
-      await tester.pump();
-      expect(closed, isTrue);
 
       // Даём анимации прокрутиться, чтобы не осталось активных тикеров.
       await tester.pumpWidget(const SizedBox.shrink());

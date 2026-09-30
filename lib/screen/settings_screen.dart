@@ -4,6 +4,7 @@ import '../core/storage_info_system.dart';
 import '../core/data_system.dart';
 import '../constants/settings_const.dart';
 import '../core/locale_manager.dart';
+import '../core/app_version.dart';
 
 //  ЭКРАН НАСТРОЕК
 
@@ -190,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 border: SettingsConst.defaultBorder,
               ),
               child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
+                Icons.arrow_forward_ios_rounded,
                 color: SettingsConst.textPrimary,
                 size: SettingsConst.headerIconSize,
               ),
@@ -528,7 +529,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              SettingsConst.appVersion,
+                              '${_localeManager.getText('version')} ${AppVersion.display}',
                               style: SettingsConst.tsSectionSubtitle,
                             ),
                           ],
@@ -653,7 +654,7 @@ class ChangelogSheet extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  SettingsConst.changelogCurrentVersion,
+                  AppVersion.display,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -683,8 +684,10 @@ class ChangelogSheet extends StatelessWidget {
     final List<TextSpan> spans = [];
 
     for (final line in lines) {
-        if ((line.startsWith('0.8.') || line == '0.9.0 Beta' || line == '1.0.0pre-r') &&
-          line.length < 14) {
+        // Заголовок версии вида "1.1.0r", "0.9.0 Beta" и т.п.
+        final isVersionHeader =
+            RegExp(r'^\d+\.\d+').hasMatch(line) && line.length < 14;
+        if (isVersionHeader) {
         spans.add(
           TextSpan(
             text: '$line\n',

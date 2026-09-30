@@ -62,7 +62,6 @@ class SettingsConst {
   static const String telegramUsername = 'durovfm';
   // КОНЕЦ */
   static const String copyrightText = '© 2026 Weather Cloud';
-  static const String appVersion = 'Version 1.0.0pre-r';
 
   // ПЕРЕИСПОЛЬЗУЕМЫЕ БОРДЕРЫ
   static Border get defaultBorder => Border.all(color: Colors.white.withValues(alpha: 0.1));
@@ -71,9 +70,16 @@ class SettingsConst {
   static BorderSide get defaultBorderSide => BorderSide(color: Colors.white.withValues(alpha: 0.1));
 
   // CHANGELOG
-static const String changelogCurrentVersion = '1.0.0pre-r';
-
 static const String changelogText = ''
+  // 1.1.0r
+  '1.1.0r\n'
+  'Update system release.\n\n'
+  '- Added update check: the app asks Firebase for the latest version on launch.\n\n'
+  '- Added an update button in the bottom navigation that downloads the new build.\n\n'
+  '- New versions install straight from GitHub Releases, no Google Play needed.\n\n'
+  '- Added anonymous sign-in: each install gets its own random ID, no registration.\n\n'
+  '- Version in settings is now read from the app itself.\n\n'
+
   // 1.0.0pre-r
   '1.0.0pre-r\n'
   'Release preparation update.\n\n'

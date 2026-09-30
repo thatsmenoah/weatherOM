@@ -298,7 +298,7 @@ class _SearchScreenState extends State<SearchScreen>
             tooltip: _localeManager.getText('back'),
             onPressed: () => Navigator.of(context).pop(),
             child: const Icon(
-              Icons.arrow_back_ios_new_rounded,
+              Icons.arrow_forward_ios_rounded,
               color: SettingsConst.textPrimary,
               size: SettingsConst.headerIconSize,
             ),

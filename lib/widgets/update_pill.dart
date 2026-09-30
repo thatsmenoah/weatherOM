@@ -17,20 +17,18 @@ enum UpdatePillState {
 
 /// Длинная кнопка-таблетка в стиле нижней навигации.
 ///
-/// Во время загрузки по краю бежит светящаяся рамка, после загрузки
-/// рамка замыкается полностью. Справа — крестик, чтобы отложить обновление.
+/// Пока обновление не начали качать, рамки нет. Во время загрузки по краю
+/// бежит светящийся сегмент, после загрузки рамка замыкается целиком.
 class UpdatePill extends StatefulWidget {
   final String label;
   final UpdatePillState state;
   final VoidCallback onTap;
-  final VoidCallback onClose;
 
   const UpdatePill({
     super.key,
     required this.label,
     required this.state,
     required this.onTap,
-    required this.onClose,
   });
 
   @override
@@ -77,7 +75,6 @@ class _UpdatePillState extends State<UpdatePill>
   @override
   Widget build(BuildContext context) {
     final bool downloading = widget.state == UpdatePillState.downloading;
-    final bool ready = widget.state == UpdatePillState.ready;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -122,15 +119,15 @@ class _UpdatePillState extends State<UpdatePill>
               ),
             ),
 
-            // Бегущая / замкнутая рамка
+            // Рамка: появляется только после начала загрузки
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _borderController,
                 builder: (context, _) {
                   return CustomPaint(
                     painter: _PillBorderPainter(
+                      state: widget.state,
                       progress: _borderController.value,
-                      complete: ready,
                     ),
                   );
                 },
@@ -140,7 +137,7 @@ class _UpdatePillState extends State<UpdatePill>
             // Текст по центру
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 44),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
                   widget.label,
                   maxLines: 1,
@@ -154,27 +151,6 @@ class _UpdatePillState extends State<UpdatePill>
                 ),
               ),
             ),
-
-            // Крестик справа (отложить обновление)
-            Positioned(
-              right: 6,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: widget.onClose,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      Icons.close_rounded,
-                      color: Colors.white.withValues(alpha: 0.75),
-                      size: 28,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -183,13 +159,16 @@ class _UpdatePillState extends State<UpdatePill>
 }
 
 class _PillBorderPainter extends CustomPainter {
+  final UpdatePillState state;
   final double progress;
-  final bool complete;
 
-  _PillBorderPainter({required this.progress, required this.complete});
+  _PillBorderPainter({required this.state, required this.progress});
 
   @override
   void paint(Canvas canvas, Size size) {
+    // До нажатия на кнопку рамки нет вовсе.
+    if (state == UpdatePillState.idle) return;
+
     const double radius = _pillRadius;
     final rect = Rect.fromLTWH(1.2, 1.2, size.width - 2.4, size.height - 2.4);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(radius));
@@ -201,7 +180,8 @@ class _PillBorderPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..color = Colors.white;
 
-    if (complete) {
+    // Загрузка завершена — рамка замкнута целиком.
+    if (state == UpdatePillState.ready) {
       canvas.drawPath(path, paint);
       return;
     }
@@ -228,6 +208,6 @@ class _PillBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PillBorderPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.complete != complete;
+    return oldDelegate.progress != progress || oldDelegate.state != state;
   }
 }

@@ -10,6 +10,7 @@ import 'screen/another_screen.dart';
 import 'screen/settings_screen.dart';
 import 'screen/search_screen.dart';
 import 'core/locale_manager.dart';
+import 'core/app_version.dart';
 import 'services/auth_service.dart';
 import 'services/update_service.dart';
 import 'widgets/update_pill.dart';
@@ -31,6 +32,7 @@ void main() async {
   // ==============================
 
   await LocaleManager().init();
+  await AppVersion.init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -534,22 +536,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     }
   }
 
-  /// Отложить обновление до следующего запуска.
-  void _dismissUpdate() {
-    setState(() {
-      _updateInfo = null;
-      _downloadedApk = null;
-      _updateState = UpdatePillState.idle;
-    });
-  }
-
+  /// Кнопка обновления в нижней навигации (или распорка, если обновления нет).
   Widget _buildUpdateSlot() {
     if (_updateInfo == null) return const SizedBox.shrink();
     return UpdatePill(
       label: _updateLabel,
       state: _updateState,
       onTap: _onUpdateTap,
-      onClose: _dismissUpdate,
     );
   }
 
