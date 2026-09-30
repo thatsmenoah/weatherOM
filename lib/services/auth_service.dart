@@ -22,15 +22,21 @@ class AuthService {
   /// Makes sure the device has an anonymous account and returns its uid.
   ///
   /// Reuses the existing session if present, otherwise creates a new
-  /// anonymous user. Returns `null` if sign-in failed (e.g. no network) —
-  /// the app should keep working without it.
-  Future<String?> ensureSignedIn() async {
+  /// anonymous user. Safe to call several times concurrently — the sign-in
+  /// request is shared, so only one anonymous account is ever created.
+  /// Returns `null` if sign-in failed (e.g. no network).
+  Future<String?> ensureSignedIn() {
     final existing = _auth.currentUser;
     if (existing != null) {
       debugPrint('[Auth] restored anonymous uid: ${existing.uid}');
-      return existing.uid;
+      return Future.value(existing.uid);
     }
+    return _signInFuture ??= _createAnonymousUser();
+  }
 
+  Future<String?>? _signInFuture;
+
+  Future<String?> _createAnonymousUser() async {
     try {
       final credential = await _auth.signInAnonymously();
       final uid = credential.user?.uid;
@@ -38,9 +44,11 @@ class AuthService {
       return uid;
     } on FirebaseAuthException catch (e) {
       debugPrint('[Auth] sign-in failed: ${e.code} ${e.message}');
+      _signInFuture = null; // разрешаем повторную попытку позже
       return null;
     } catch (e) {
       debugPrint('[Auth] sign-in failed: $e');
+      _signInFuture = null;
       return null;
     }
   }

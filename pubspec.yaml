@@ -2,7 +2,7 @@ name: weather_app
 description: "See the real weather in Weather Cloud"
 publish_to: 'none'
 
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: ^3.11.4
