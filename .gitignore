@@ -71,6 +71,9 @@ android/key.properties
 *.jks
 *.keystore
 
+# Локальные сборки APK для релизов
+release-builds/
+
 # iOS (дополнительно)
 ios/Pods/
 ios/Podfile.lock
