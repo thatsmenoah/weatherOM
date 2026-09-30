@@ -9,14 +9,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weather_app/core/tips_system.dart';
 import 'package:weather_app/utils/weather_utils.dart';
+import 'package:weather_app/core/data_system.dart';
 import 'package:weather_app/core/locale_manager.dart';
+import 'package:weather_app/services/weather_service.dart';
 
 void main() {
   test('ночная иконка использует луну', () {
     expect(WeatherUtils.getWeatherIcon('01n'), Icons.nightlight_round);
   });
 
-  test('советы не падают на неполному прогнозе', () {
+  test('советы не падают на неполном прогнозе', () {
     final weather = {
       'main': {'temp': 5, 'feels_like': 5, 'humidity': 50},
       'weather': [{'main': 'Clear'}],
@@ -30,5 +32,40 @@ void main() {
 
     expect(tip, isNotNull);
     expect(LocaleManager().getText('no_data'), isNotEmpty);
+  });
+
+  test('геокодинг безопасно восстанавливается из числовых значений', () {
+    final result = GeocodingResult.fromMap({
+      'city': 123,
+      'district': null,
+      'street': 'Main street',
+      'fullAddress': 'Main street, 1',
+    });
+
+    expect(result.city, '123');
+    expect(result.displayName, 'Main street');
+    expect(result.source, 'unknown');
+  });
+
+  test('пустой ответ погоды не считается успешными данными', () {
+    final response = WeatherResponse(
+      weather: const {},
+      forecast: const {},
+      airQuality: const {},
+      sunData: const {},
+      errorMessage: 'network error',
+    );
+
+    expect(response.hasError, isTrue);
+    expect(response.isFromOpenMeteo, isTrue);
+    expect(response.toMap()['weather'], isEmpty);
+  });
+
+  test('новый кеш без данных не считается валидным', () {
+    final dataSystem = DataSystem(fileName: 'test-weather-cache.json');
+
+    expect(dataSystem.getValidCache(), isNull);
+    expect(dataSystem.getLatFromCache(), isNull);
+    expect(dataSystem.getLonFromCache(), isNull);
   });
 }

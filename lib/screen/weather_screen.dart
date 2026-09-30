@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shake/shake.dart';
 import '../core/data_system.dart';
 import '../core/tips_system.dart';
 import '../core/loading_system.dart';
@@ -174,7 +176,7 @@ class WeatherScreen extends StatefulWidget {
 }
 
 class WeatherScreenState extends State<WeatherScreen>
-    with AutomaticKeepAliveClientMixin {
+  with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final LocaleManager _localeManager = LocaleManager();
 
   Map<String, dynamic>? weatherData;
@@ -201,10 +203,14 @@ class WeatherScreenState extends State<WeatherScreen>
   final DataSystem _dataSystem = DataSystem();
   final TipsSystem _tipsSystem = TipsSystem();
   final LoadingStateManager _loadingManager = LoadingStateManager();
+  late final ShakeDetector _shakeDetector;
 
   bool _showStatusToast = false;
   bool _showCompactHeader = false;
   bool _isUsingFallbackLocation = false;
+  bool _shakeRefreshEnabled = true;
+  bool _isShakeDetectorListening = false;
+  bool _isRefreshInProgress = false;
 
   Map<String, dynamic>? _cachedTip;
   bool _isInitialized = false;
@@ -212,10 +218,55 @@ class WeatherScreenState extends State<WeatherScreen>
   @override
   bool get wantKeepAlive => true;
 
+  bool get _supportsShakeDetection =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _shakeDetector = ShakeDetector.waitForStart(
+      onPhoneShake: (_) {
+        if (!_shakeRefreshEnabled ||
+            !mounted ||
+            weatherData == null ||
+            _loadingManager.isLoading ||
+            _isRefreshInProgress) {
+          return;
+        }
+        _refreshWeather();
+      },
+      shakeThresholdGravity: 2.7,
+      shakeSlopTimeMS: 900,
+      shakeCountResetTime: 1800,
+      minimumShakeCount: 2,
+      useFilter: true,
+    );
+    _startShakeDetector();
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_shakeRefreshEnabled) _startShakeDetector();
+    } else {
+      _stopShakeDetector();
+    }
+  }
+
+  void _startShakeDetector() {
+    if (!_supportsShakeDetection || _isShakeDetectorListening) return;
+    _shakeDetector.startListening();
+    _isShakeDetectorListening = true;
+  }
+
+  void _stopShakeDetector() {
+    if (!_isShakeDetectorListening) return;
+    _shakeDetector.stopListening();
+    _isShakeDetectorListening = false;
   }
 
   @override
@@ -229,6 +280,8 @@ class WeatherScreenState extends State<WeatherScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopShakeDetector();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _loadingManager.dispose();
@@ -520,26 +573,42 @@ class WeatherScreenState extends State<WeatherScreen>
   // ОБНОВЛЕНИЕ ПОГОДЫ
   // ============================================================
   Future<void> _refreshWeather() async {
-    _loadingManager.startRefreshing();
-    if (mounted) setState(() {});
+    if (_isRefreshInProgress || _loadingManager.isLoading) return;
+    _isRefreshInProgress = true;
     try {
-      final position = await WeatherService.getCurrentPosition();
-      if (!mounted) return;
-      lat = position.latitude;
-      lon = position.longitude;
-      _isUsingFallbackLocation = false;
-    } catch (e) {
-      if (!mounted) return;
-      if (weatherData == null) {
-        await showLocationErrorDialog(context);
+      _loadingManager.startRefreshing();
+      if (mounted) setState(() {});
+      try {
+        final position = await WeatherService.getCurrentPosition();
+        if (!mounted) return;
+        lat = position.latitude;
+        lon = position.longitude;
+        _isUsingFallbackLocation = false;
+      } catch (e) {
+        if (!mounted) return;
+        if (weatherData == null) {
+          await showLocationErrorDialog(context);
+        }
+        lat ??= 55.7558;
+        lon ??= 37.6173;
+        _isUsingFallbackLocation = true;
       }
-      lat ??= 55.7558;
-      lon ??= 37.6173;
-      _isUsingFallbackLocation = true;
+      await _fetchFreshData();
+      _updateTip();
+      if (mounted) setState(() {});
+    } finally {
+      _isRefreshInProgress = false;
     }
-    await _fetchFreshData();
-    _updateTip();
-    if (mounted) setState(() {});
+  }
+
+  void setShakeRefreshEnabled(bool enabled) {
+    if (_shakeRefreshEnabled == enabled) return;
+    _shakeRefreshEnabled = enabled;
+    if (enabled) {
+      _startShakeDetector();
+    } else {
+      _stopShakeDetector();
+    }
   }
 
   @override

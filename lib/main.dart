@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- ДОБАВИТЬ ЭТУ СТРОКУ
+import 'package:firebase_core/firebase_core.dart';
 import 'dart:ui' as ui;
+import 'firebase_options.dart';
 import 'screen/weather_screen.dart';
 import 'screen/another_screen.dart';
 import 'screen/settings_screen.dart';
 import 'screen/search_screen.dart';
 import 'core/locale_manager.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +17,15 @@ void main() async {
   // ========== ЗАГРУЖАЕМ .env ==========
   await dotenv.load(fileName: ".env");
   // ====================================
+
+  // ========== FIREBASE ==========
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  // Анонимный вход: не блокируем запуск UI — если сети нет,
+  // приложение всё равно откроется, а uid появится при следующем запуске.
+  AuthService.instance.ensureSignedIn();
+  // ==============================
 
   await LocaleManager().init();
 
@@ -168,6 +180,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     HapticFeedback.mediumImpact();
     
     if (index == 1) {
+      weatherScreenKey.currentState?.setShakeRefreshEnabled(false);
       _navigateToSearch();
       return;
     }
@@ -177,6 +190,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _isMenuOpen = false;
       _menuAnimationController.reverse();
     });
+    weatherScreenKey.currentState?.setShakeRefreshEnabled(true);
   }
 
   void _updateNavPosition(double scrollOffset, bool isScrollingDown) {
@@ -211,6 +225,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   void _navigateToSearch() {
+    weatherScreenKey.currentState?.setShakeRefreshEnabled(false);
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -235,10 +250,15 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         transitionDuration: const Duration(milliseconds: 370),
         reverseTransitionDuration: const Duration(milliseconds: 370),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        weatherScreenKey.currentState?.setShakeRefreshEnabled(_currentIndex == 0);
+      }
+    });
   }
 
   void _navigateToSettings() {
+    weatherScreenKey.currentState?.setShakeRefreshEnabled(false);
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -259,7 +279,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         transitionDuration: const Duration(milliseconds: 370),
         reverseTransitionDuration: const Duration(milliseconds: 350),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        weatherScreenKey.currentState?.setShakeRefreshEnabled(_currentIndex == 0);
+      }
+    });
   }
 
   @override
@@ -376,6 +400,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                     label: LocaleManager().getText('other'),
                     onTap: () => _onMenuItemTap(() {
                       setState(() => _currentIndex = 1);
+                      weatherScreenKey.currentState?.setShakeRefreshEnabled(false);
                     }),
                   ),
                   _buildDivider(),
