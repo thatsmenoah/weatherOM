@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:702888170487:android:f87ce88281d9fa38f854f2",
+        "android_client_info": {
+          "package_name": "com.companydot.weathercloud.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAn3bFYKvvVEjpvJfTwTBn5vQOsAFCruTo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:702888170487:android:132a219d41e74164f854f2",
         "android_client_info": {
           "package_name": "com.example.weather_app"
