@@ -1,0 +1,96 @@
+name: Release APK
+
+# Запускается при пуше тега вида v1.1.1.
+# Собирает подписанный APK, создаёт GitHub Release и обновляет Firestore,
+# чтобы у пользователей появилась кнопка обновления.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: Write .env
+        run: |
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" > .env
+          echo "OPENCAGE_API_KEY=${{ secrets.OPENCAGE_API_KEY }}" >> .env
+
+      - name: Restore keystore
+        run: |
+          mkdir -p android/app
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/weather-cloud-release.jks
+
+      - name: Write key.properties
+        run: |
+          {
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}"
+            echo "storeFile=app/weather-cloud-release.jks"
+          } > android/key.properties
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Read version
+        id: version
+        run: |
+          # version: 1.1.0-r+5  ->  name=1.1.0r  code=5
+          RAW=$(grep '^version:' pubspec.yaml | head -1 | sed 's/version:[[:space:]]*//')
+          NAME=$(echo "$RAW" | cut -d'+' -f1 | tr -d '-')
+          CODE=$(echo "$RAW" | cut -d'+' -f2)
+          APK="weather-cloud-${NAME}.apk"
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "code=$CODE" >> $GITHUB_OUTPUT
+          echo "apk=$APK" >> $GITHUB_OUTPUT
+          echo "Version: $NAME ($CODE), APK: $APK"
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Prepare APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk "${{ steps.version.outputs.apk }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.version.outputs.apk }}
+          name: ${{ steps.version.outputs.name }}
+          generate_release_notes: true
+
+      - name: Update Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          APK_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.version.outputs.apk }}
+        run: |
+          npm install firebase-admin@12 --no-save --silent
+          node .github/scripts/update-firestore.js
