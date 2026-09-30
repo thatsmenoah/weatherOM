@@ -64,21 +64,36 @@ Release-сборка подписывается постоянным ключо�
 
 ## Выпуск обновления
 
-1. Поднять версию в `pubspec.yaml` (например `version: 1.0.1+2`, где `2` — код версии).
-2. Собрать APK: `flutter build apk --release`.
-3. Загрузить APK в **GitHub Releases** с тегом (`v1.0.1`) и скопировать ссылку на файл.
-4. В Firestore обновить документ `config/update`:
+Релизы собираются автоматически через GitHub Actions. Вручную ничего собирать
+не нужно.
 
-   | Поле | Тип | Значение |
-   |---|---|---|
-   | `latestVersionCode` | number | `2` |
-   | `latestVersion` | string | `1.0.1` |
-   | `apkUrl` | string | ссылка на APK из релиза |
-   | `notes` | string | что нового (необязательно) |
+1. Поднять версию в `pubspec.yaml` (например `version: 1.1.1-r+6`, где `6` — код
+   версии; он всегда должен расти).
+2. Закоммитить и запушить изменения в `main`.
+3. Поставить тег и запушить его:
+   ```
+   git tag v1.1.1r
+   git push origin v1.1.1r
+   ```
 
-Приложение при запуске сравнивает свой код версии с `latestVersionCode`. Если в
-Firestore новее — в навигации появляется кнопка «Обновление». Нет сети или
-документа — кнопки просто нет, приложение работает как обычно.
+Дальше GitHub Actions (`.github/workflows/release.yml`) сам:
+- соберёт подписанный release-APK,
+- создаст GitHub Release с этим APK,
+- обновит документ `config/update` в Firestore, чтобы у пользователей появилась
+  кнопка обновления.
+
+Прогресс виден во вкладке **Actions** репозитория.
+
+Приложение при запуске сравнивает свой код версии с `latestVersionCode` из
+Firestore. Если в Firestore новее — в навигации появляется кнопка «Обновление».
+Нет сети или документа — кнопки просто нет, приложение работает как обычно.
+
+### Секреты репозитория
+
+Workflow использует секреты (Settings → Secrets and variables → Actions):
+`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`,
+`OPENWEATHER_API_KEY`, `OPENCAGE_API_KEY`, `FIREBASE_SERVICE_ACCOUNT`.
+Они уже настроены; при смене ключа подписи или API-ключей их нужно обновить.
 
 ## Firebase
 
