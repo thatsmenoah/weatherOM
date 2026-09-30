@@ -71,6 +71,12 @@ class SettingsConst {
 
   // CHANGELOG
 static const String changelogText = ''
+  // 1.1.1r
+  '1.1.1r\n'
+  'Stability fix.\n\n'
+  '- Fixed the app hanging on first launch while waiting for the GPS fix.\n\n'
+  '- Location now falls back to the last known position, so data loads quickly.\n\n'
+
   // 1.1.0r
   '1.1.0r\n'
   'Update system release.\n\n'

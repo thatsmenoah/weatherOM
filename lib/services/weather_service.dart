@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -197,12 +198,43 @@ class WeatherService {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        throw Exception('Location permissions are denied');
-      }
     }
-    return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    if (permission == LocationPermission.denied) {
+      throw Exception('Location permissions are denied');
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception('Location permissions are permanently denied');
+    }
+
+    // Свежий GPS-фикс на холодном старте может занимать минуты (особенно в
+    // помещении). Раньше здесь ожидание было бесконечным, из-за чего при первом
+    // запуске приложение висело на загрузке. Ограничиваем время и при неудаче
+    // берём последнюю известную позицию — данные всё равно загрузятся.
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+    } on TimeoutException {
+      debugPrint('getCurrentPosition: timeout, trying last known position');
+    }
+
+    final lastKnown = await Geolocator.getLastKnownPosition();
+    if (lastKnown != null) {
+      debugPrint('getCurrentPosition: using last known position');
+      return lastKnown;
+    }
+
+    // Последняя попытка — низкая точность определяется по сети и обычно
+    // отвечает быстро даже без GPS.
+    debugPrint('getCurrentPosition: no last known, trying low accuracy');
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.low,
+        timeLimit: Duration(seconds: 10),
+      ),
     );
   }
 
