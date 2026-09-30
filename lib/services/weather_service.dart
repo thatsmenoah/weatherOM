@@ -106,12 +106,19 @@ class GeocodingResult {
 
   factory GeocodingResult.fromMap(Map<String, dynamic> map) {
     return GeocodingResult(
-      city: map['city'] ?? '',
-      district: map['district'] ?? '',
-      street: map['street'] ?? '',
-      fullAddress: map['fullAddress'] ?? '',
-      source: map['source'] ?? 'unknown',
+      city: _asString(map['city']),
+      district: _asString(map['district']),
+      street: _asString(map['street']),
+      fullAddress: _asString(map['fullAddress']),
+      source: _asString(map['source'], fallback: 'unknown'),
     );
+  }
+
+  /// Безопасно приводит значение из кеша к строке.
+  static String _asString(dynamic value, {String fallback = ''}) {
+    if (value == null) return fallback;
+    if (value is String) return value.isEmpty ? fallback : value;
+    return value.toString();
   }
 }
 

@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Конфигурация обновлений (версия, ссылка на APK).
+    // Читать могут только авторизованные пользователи (у нас анонимный вход),
+    // запись — только вручную через консоль Firebase.
+    match /config/{doc} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Всё остальное закрыто по умолчанию.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

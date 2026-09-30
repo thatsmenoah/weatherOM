@@ -12,6 +12,7 @@ import 'package:weather_app/utils/weather_utils.dart';
 import 'package:weather_app/core/data_system.dart';
 import 'package:weather_app/core/locale_manager.dart';
 import 'package:weather_app/services/weather_service.dart';
+import 'package:weather_app/widgets/update_pill.dart';
 
 void main() {
   test('ночная иконка использует луну', () {
@@ -67,5 +68,49 @@ void main() {
     expect(dataSystem.getValidCache(), isNull);
     expect(dataSystem.getLatFromCache(), isNull);
     expect(dataSystem.getLonFromCache(), isNull);
+  });
+
+  testWidgets('кнопка обновления строится во всех состояниях', (tester) async {
+    for (final state in UpdatePillState.values) {
+      var tapped = false;
+      var closed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                child: UpdatePill(
+                  label: 'Обновление',
+                  state: state,
+                  onTap: () => tapped = true,
+                  onClose: () => closed = true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Обновление'), findsOneWidget);
+
+      await tester.tap(find.text('Обновление'));
+      await tester.pump();
+
+      // Во время загрузки тап по кнопке игнорируется.
+      if (state == UpdatePillState.downloading) {
+        expect(tapped, isFalse);
+      } else {
+        expect(tapped, isTrue);
+      }
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      expect(closed, isTrue);
+
+      // Даём анимации прокрутиться, чтобы не осталось активных тикеров.
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 }

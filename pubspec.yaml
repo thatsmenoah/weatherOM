@@ -25,6 +25,9 @@ dependencies:
   shake: ^3.0.0
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
+  package_info_plus: ^10.2.1
+  open_filex: ^4.7.0
+  cloud_firestore: ^6.10.0
 
 dev_dependencies:
   flutter_test:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- ДОБАВИТЬ ЭТУ СТРОКУ
 import 'package:firebase_core/firebase_core.dart';
+import 'dart:io';
 import 'dart:ui' as ui;
 import 'firebase_options.dart';
 import 'screen/weather_screen.dart';
@@ -10,6 +11,8 @@ import 'screen/settings_screen.dart';
 import 'screen/search_screen.dart';
 import 'core/locale_manager.dart';
 import 'services/auth_service.dart';
+import 'services/update_service.dart';
+import 'widgets/update_pill.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,6 +95,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final LayerLink _layerLink = LayerLink();
   late final List<Widget> _screens;
 
+  // ===== ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ =====
+  UpdateInfo? _updateInfo;
+  UpdatePillState _updateState = UpdatePillState.idle;
+  File? _downloadedApk;
+  // ==================================
+
   @override
   void initState() {
     super.initState();
@@ -145,6 +154,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
     _navSlideController.value = 0.0;
     _showNav = true;
+
+    _checkForUpdate();
   }
 
   @override
@@ -468,6 +479,82 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     action();
   }
 
+  // ========== ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ ==========
+
+  /// Спрашивает у Firestore, есть ли версия новее. Нет сети / нет
+  /// обновления → кнопка просто не появляется.
+  Future<void> _checkForUpdate() async {
+    await UpdateService.instance.init();
+    // Ждём анонимный вход — Firestore пускает только авторизованных.
+    await AuthService.instance.ensureSignedIn();
+    final info = await UpdateService.instance.checkForUpdate();
+    if (!mounted || info == null) return;
+
+    setState(() {
+      _updateInfo = info;
+      _updateState = UpdatePillState.idle;
+      _downloadedApk = null;
+    });
+  }
+
+  String get _updateLabel {
+    if (_updateState == UpdatePillState.ready) {
+      return LocaleManager().getText('update_install');
+    }
+    return LocaleManager().getText('update');
+  }
+
+  Future<void> _onUpdateTap() async {
+    if (_updateState == UpdatePillState.downloading) return;
+
+    // Уже скачано — запускаем системный установщик.
+    if (_updateState == UpdatePillState.ready) {
+      final file = _downloadedApk;
+      if (file != null) {
+        await UpdateService.instance.installApk(file);
+      }
+      return;
+    }
+
+    final info = _updateInfo;
+    if (info == null) return;
+
+    setState(() => _updateState = UpdatePillState.downloading);
+    try {
+      final file = await UpdateService.instance.downloadApk(info);
+      if (!mounted) return;
+      setState(() {
+        _downloadedApk = file;
+        _updateState = UpdatePillState.ready;
+      });
+    } catch (e) {
+      debugPrint('[Update] download failed: $e');
+      if (!mounted) return;
+      setState(() => _updateState = UpdatePillState.idle);
+    }
+  }
+
+  /// Отложить обновление до следующего запуска.
+  void _dismissUpdate() {
+    setState(() {
+      _updateInfo = null;
+      _downloadedApk = null;
+      _updateState = UpdatePillState.idle;
+    });
+  }
+
+  Widget _buildUpdateSlot() {
+    if (_updateInfo == null) return const SizedBox.shrink();
+    return UpdatePill(
+      label: _updateLabel,
+      state: _updateState,
+      onTap: _onUpdateTap,
+      onClose: _dismissUpdate,
+    );
+  }
+
+  // ==========================================
+
   // ========== НИЖНЯЯ НАВИГАЦИЯ ==========
   Widget _buildBottomNav() {
     return Positioned(
@@ -493,7 +580,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                       onTap: () => _onNavItemTap(0),
                     ),
                     
-                    const Spacer(), // Раздвигаем кнопки
+                    const SizedBox(width: 10),
+
+                    // Кнопка-таблетка "Обновление" (или распорка, если обновления нет)
+                    Expanded(child: _buildUpdateSlot()),
+
+                    const SizedBox(width: 10),
                     
                     // Кнопка "Поиск" (круглая)
                     _buildCircleButton(

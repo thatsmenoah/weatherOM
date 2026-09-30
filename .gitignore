@@ -66,6 +66,11 @@ android/local.properties
 android/app/build/
 android/build/
 
+# Release signing (НИКОГДА не коммитить!)
+android/key.properties
+*.jks
+*.keystore
+
 # iOS (дополнительно)
 ios/Pods/
 ios/Podfile.lock

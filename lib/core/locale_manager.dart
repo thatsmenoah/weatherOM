@@ -318,6 +318,10 @@ class LocaleManager {
       'no2_full': 'Диоксид азота',
       'o3_full': 'Озон',
       'so2_full': 'Диоксид серы',
+
+      // ============ ОБНОВЛЕНИЕ ============
+      'update': 'Обновление',
+      'update_install': 'Установить',
     },
 
     'Английский': {
@@ -629,6 +633,10 @@ class LocaleManager {
       'no2_full': 'Nitrogen dioxide',
       'o3_full': 'Ozone',
       'so2_full': 'Sulfur dioxide',
+
+      // ============ UPDATE ============
+      'update': 'Update',
+      'update_install': 'Install',
     },
   };
 
