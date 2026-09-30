@@ -37,10 +37,12 @@ async function main() {
   const keystoreB64 = fs
     .readFileSync(path.join(PROJECT_DIR, 'android', 'app', 'weather-cloud-release.jks'))
     .toString('base64');
-  const saJson = fs.readFileSync(
-    path.join(PROJECT_DIR, 'release-builds', 'firebase-service-account.json'),
-    'utf8',
-  );
+  const saJson = fs
+    .readFileSync(
+      path.join(PROJECT_DIR, 'release-builds', 'firebase-service-account.json'),
+      'utf8',
+    )
+    .replace(/^\uFEFF/, ''); // убираем BOM, если есть
 
   const secrets = {
     KEYSTORE_BASE64: keystoreB64,

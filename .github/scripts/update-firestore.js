@@ -25,7 +25,9 @@ async function main() {
     throw new Error('VERSION_NAME, VERSION_CODE and APK_URL are required');
   }
 
-  const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
+  // Убираем BOM, если он попал в начало строки (Windows/PowerShell).
+  const cleaned = FIREBASE_SERVICE_ACCOUNT.replace(/^\uFEFF/, '');
+  const serviceAccount = JSON.parse(cleaned);
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
