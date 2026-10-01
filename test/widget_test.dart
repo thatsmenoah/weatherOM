@@ -54,12 +54,14 @@ void main() {
       forecast: const {},
       airQuality: const {},
       sunData: const {},
+      extraMetrics: const {'dewPoint': 4.5},
       errorMessage: 'network error',
     );
 
     expect(response.hasError, isTrue);
     expect(response.isFromOpenMeteo, isTrue);
     expect(response.toMap()['weather'], isEmpty);
+    expect(response.toMap()['extraMetrics'], {'dewPoint': 4.5});
   });
 
   test('новый кеш без данных не считается валидным', () {

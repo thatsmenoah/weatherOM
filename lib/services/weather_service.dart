@@ -17,6 +17,7 @@ class WeatherResponse {
   final Map<String, dynamic> forecast;
   final Map<String, dynamic> airQuality;
   final Map<String, dynamic> sunData;
+  final Map<String, dynamic> extraMetrics;
   final WeatherSource source;
   final String? errorMessage;
   final Map<String, dynamic>? locationDetails;
@@ -26,6 +27,7 @@ class WeatherResponse {
     required this.forecast,
     required this.airQuality,
     required this.sunData,
+    this.extraMetrics = const {},
     this.source = WeatherSource.openMeteo,
     this.errorMessage,
     this.locationDetails,
@@ -37,6 +39,7 @@ class WeatherResponse {
       'forecast': forecast,
       'airQuality': airQuality,
       'sunData': sunData,
+      'extraMetrics': extraMetrics,
       'source': source.index,
       'locationDetails': locationDetails,
     };
@@ -175,7 +178,7 @@ class WeatherService {
         '&wind_speed_unit=ms'
         '&hourly=temperature_2m,relativehumidity_2m,windspeed_10m,winddirection_10m,is_day,'
         'pressure_msl,weathercode,visibility,apparent_temperature,'
-        'precipitation_probability'
+        'precipitation_probability,shortwave_radiation'
         '&daily=weathercode,temperature_2m_max,temperature_2m_min,'
         'sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,'
         'windspeed_10m_max,winddirection_10m_dominant'
@@ -712,6 +715,13 @@ class WeatherService {
           if (val > 0) visibility = val;
         }
       }
+
+      double? shortwaveRadiation;
+      final radiationList = hourly['shortwave_radiation'] as List?;
+      if (radiationList != null && currentHourIndex < radiationList.length) {
+        final value = radiationList[currentHourIndex];
+        if (value is num) shortwaveRadiation = value.toDouble();
+      }
       
       int? precipProb;
       if (daily['precipitation_probability_max']?.isNotEmpty == true) {
@@ -723,7 +733,7 @@ class WeatherService {
         'visibility': visibility,
         'uvIndex': uvIndex,
         'precipitationProbability': precipProb,
-        'shortwaveRadiation': null,
+        'shortwaveRadiation': shortwaveRadiation,
       };
     } catch (e) {
       return {
@@ -749,6 +759,7 @@ class WeatherService {
         forecast: data['forecast'] as Map<String, dynamic>,
         airQuality: data['airQuality'] as Map<String, dynamic>,
         sunData: data['sunData'] as Map<String, dynamic>,
+        extraMetrics: data['extraMetrics'] as Map<String, dynamic>? ?? const {},
         source: WeatherSource.openMeteo,
         locationDetails: locationDetails.toMap(),
       );

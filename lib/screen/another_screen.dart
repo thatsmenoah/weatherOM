@@ -11,10 +11,10 @@ class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
 
   @override
-  State<ActivityScreen> createState() => _ActivityScreenState();
+  ActivityScreenState createState() => ActivityScreenState();
 }
 
-class _ActivityScreenState extends State<ActivityScreen> {
+class ActivityScreenState extends State<ActivityScreen> {
   final LocaleManager _localeManager = LocaleManager();
 
   Map<String, dynamic>? weatherData;
@@ -28,6 +28,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
   bool _isRefreshing = false;
   String _errorMessage = '';
   bool _hasData = false;
+  bool _dataSystemInitialized = false;
+  bool _hasSelectedLocation = false;
+  int _requestGeneration = 0;
 
   final DataSystem _dataSystem = DataSystem(fileName: 'activity_data.json');
   final LoadingStateManager _loadingManager = LoadingStateManager();
@@ -47,17 +50,24 @@ class _ActivityScreenState extends State<ActivityScreen> {
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_hasData) {
-      _fetchDataInBackground();
-    }
-  }
-
   Future<void> _initDataSystem() async {
     await _dataSystem.init();
     if (!mounted) return;
+    _dataSystemInitialized = true;
+
+    if (_hasSelectedLocation) {
+      if (_hasData) {
+        await _refreshData();
+      } else {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = '';
+        });
+        _loadingManager.startLoading();
+        await _fetchData();
+      }
+      return;
+    }
 
     final cachedData = _dataSystem.getAllCachedData();
 
@@ -101,23 +111,50 @@ class _ActivityScreenState extends State<ActivityScreen> {
     });
   }
 
+  void setLocation(double newLat, double newLon) {
+    final locationChanged = lat != newLat || lon != newLon;
+    _hasSelectedLocation = true;
+    if (!locationChanged) return;
+
+    lat = newLat;
+    lon = newLon;
+    ++_requestGeneration;
+    if (!_dataSystemInitialized) return;
+
+    if (_hasData) {
+      _refreshData();
+    } else {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+      _loadingManager.startLoading();
+      _fetchData();
+    }
+  }
+
   Future<void> _fetchDataInBackground() async {
+    final requestId = ++_requestGeneration;
     try {
       if (lat == null || lon == null) {
         final position = await WeatherService.getCurrentPosition();
+        if (!mounted || requestId != _requestGeneration) return;
         lat = position.latitude;
         lon = position.longitude;
       }
 
       final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
 
-      if (response.hasError) {
+      if (!mounted || requestId != _requestGeneration || response.hasError) {
         return;
       }
 
       final weather = response.weather;
       final airQuality = response.airQuality;
-      final extraMetricsFromResponse = _extractExtraMetrics(weather);
+      final extraMetricsFromResponse = _extractExtraMetrics(
+        weather,
+        response.extraMetrics,
+      );
 
       final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
 
@@ -132,22 +169,23 @@ class _ActivityScreenState extends State<ActivityScreen> {
         lon: lon,
       );
 
-      if (mounted) {
-        setState(() {
-          weatherData = weather;
-          airQualityData = airQuality;
-          extraMetrics = extraMetricsFromResponse;
-          cityName = cityNameFromData;
-          _hasData = true;
-        });
-        _loadingManager.finishLoading(fromStorage: false);
-      }
+      if (!mounted || requestId != _requestGeneration) return;
+      setState(() {
+        weatherData = weather;
+        airQualityData = airQuality;
+        extraMetrics = extraMetricsFromResponse;
+        cityName = cityNameFromData;
+        _hasData = true;
+      });
+      _loadingManager.finishLoading(fromStorage: false);
     } catch (e) {
       // Фоновая ошибка — игнорируем
     }
   }
 
   Future<void> _getLocationAndData() async {
+    final requestId = ++_requestGeneration;
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = '';
@@ -155,19 +193,25 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
     try {
       final position = await WeatherService.getCurrentPosition();
+      if (!mounted || requestId != _requestGeneration) return;
       lat = position.latitude;
       lon = position.longitude;
+      _hasSelectedLocation = false;
       await _fetchData();
     } catch (e) {
+      if (!mounted || requestId != _requestGeneration) return;
       lat = 55.7558;
       lon = 37.6173;
+      _hasSelectedLocation = false;
       await _fetchData();
     }
   }
 
   Future<void> _fetchData() async {
+    final requestId = ++_requestGeneration;
     try {
       final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+      if (!mounted || requestId != _requestGeneration) return;
 
       if (response.hasError) {
         setState(() {
@@ -180,7 +224,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
       final weather = response.weather;
       final airQuality = response.airQuality;
-      final extraMetricsFromResponse = _extractExtraMetrics(weather);
+      final extraMetricsFromResponse = _extractExtraMetrics(
+        weather,
+        response.extraMetrics,
+      );
 
       final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
 
@@ -195,6 +242,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         lon: lon,
       );
 
+      if (!mounted || requestId != _requestGeneration) return;
       setState(() {
         weatherData = weather;
         airQualityData = airQuality;
@@ -206,6 +254,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
       _loadingManager.finishLoading(fromStorage: false);
     } catch (e) {
+      if (!mounted || requestId != _requestGeneration) return;
       setState(() {
         _isLoading = false;
         _errorMessage = _localeManager.getText('no_internet');
@@ -215,6 +264,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }
 
   Future<void> _refreshData() async {
+    final requestId = ++_requestGeneration;
+    if (!mounted) return;
     setState(() {
       _isRefreshing = true;
     });
@@ -223,11 +274,13 @@ class _ActivityScreenState extends State<ActivityScreen> {
     try {
       if (lat == null || lon == null) {
         final position = await WeatherService.getCurrentPosition();
+        if (!mounted || requestId != _requestGeneration) return;
         lat = position.latitude;
         lon = position.longitude;
       }
 
       final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+      if (!mounted || requestId != _requestGeneration) return;
 
       if (response.hasError) {
         setState(() {
@@ -239,7 +292,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
       final weather = response.weather;
       final airQuality = response.airQuality;
-      final extraMetricsFromResponse = _extractExtraMetrics(weather);
+      final extraMetricsFromResponse = _extractExtraMetrics(
+        weather,
+        response.extraMetrics,
+      );
 
       final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
 
@@ -254,6 +310,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         lon: lon,
       );
 
+      if (!mounted || requestId != _requestGeneration) return;
       setState(() {
         weatherData = weather;
         airQualityData = airQuality;
@@ -265,27 +322,40 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
       _loadingManager.finishLoading(fromStorage: false);
     } catch (e) {
+      if (!mounted || requestId != _requestGeneration) return;
       setState(() {
         _isRefreshing = false;
       });
       _loadingManager.setError(_localeManager.getText('refresh_error'));
+    } finally {
+      if (mounted && requestId == _requestGeneration) {
+        _isRefreshing = false;
+      }
     }
   }
 
-  Map<String, dynamic> _extractExtraMetrics(Map<String, dynamic> weather) {
+  Map<String, dynamic> _extractExtraMetrics(
+    Map<String, dynamic> weather,
+    Map<String, dynamic> normalizedMetrics,
+  ) {
     final extra = weather['_extra'] as Map<String, dynamic>?;
 
     double? uvIndex;
-    if (extra != null && extra['uvIndex'] != null) {
-      uvIndex = (extra['uvIndex'] as num).toDouble();
+    final uvValue = normalizedMetrics['uvIndex'] ?? extra?['uvIndex'];
+    if (uvValue is num) {
+      uvIndex = uvValue.toDouble();
     }
 
     int? precipProb;
-    if (extra != null && extra['precipitationProbability'] != null) {
-      precipProb = (extra['precipitationProbability'] as num).toInt();
+    final precipValue =
+        normalizedMetrics['precipitationProbability'] ??
+        extra?['precipitationProbability'];
+    if (precipValue is num) {
+      precipProb = precipValue.toInt();
     }
 
-    double? dewPoint = extra?['dewPoint'] as double?;
+    final dewPointValue = normalizedMetrics['dewPoint'] ?? extra?['dewPoint'];
+    double? dewPoint = dewPointValue is num ? dewPointValue.toDouble() : null;
 
     if (dewPoint == null) {
       final temp = weather['main']?['temp'] ?? 0.0;
@@ -302,16 +372,22 @@ class _ActivityScreenState extends State<ActivityScreen> {
       }
     }
 
-    double? visibility = weather['visibility'] != null
-        ? (weather['visibility'] as num).toDouble()
-        : null;
+    final visibilityValue =
+      normalizedMetrics['visibility'] ?? weather['visibility'];
+    final double? visibility = visibilityValue is num
+      ? visibilityValue.toDouble()
+      : null;
+
+    final radiationValue = normalizedMetrics['shortwaveRadiation'];
 
     return {
       'dewPoint': dewPoint,
       'visibility': visibility,
       'uvIndex': uvIndex,
       'precipitationProbability': precipProb,
-      'shortwaveRadiation': null,
+        'shortwaveRadiation': radiationValue is num
+          ? radiationValue.toDouble()
+          : null,
     };
   }
 

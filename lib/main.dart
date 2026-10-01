@@ -95,6 +95,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   static const double _scrollThreshold = 20.0;
 
   final LayerLink _layerLink = LayerLink();
+  final GlobalKey<ActivityScreenState> _activityScreenKey =
+      GlobalKey<ActivityScreenState>();
   late final List<Widget> _screens;
 
   // ===== ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ =====
@@ -109,7 +111,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
     _screens = [
       WeatherScreen(key: weatherScreenKey),
-      const ActivityScreen(),
+      ActivityScreen(key: _activityScreenKey),
     ];
 
     _navAnimationController = AnimationController(
@@ -245,6 +247,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         pageBuilder: (context, animation, secondaryAnimation) => SearchScreen(
         onLocationSelected: (lat, lon, name) {
           weatherScreenKey.currentState?.setLocation(lat, lon, name);
+          _activityScreenKey.currentState?.setLocation(lat, lon);
           Navigator.pop(context);
         },
         ),
@@ -412,6 +415,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                     icon: Icons.explore,
                     label: LocaleManager().getText('other'),
                     onTap: () => _onMenuItemTap(() {
+                      final weatherState = weatherScreenKey.currentState;
+                      final lat = weatherState?.currentLat;
+                      final lon = weatherState?.currentLon;
+                      if (lat != null && lon != null) {
+                        _activityScreenKey.currentState?.setLocation(lat, lon);
+                      }
                       setState(() => _currentIndex = 1);
                       weatherScreenKey.currentState?.setShakeRefreshEnabled(false);
                     }),

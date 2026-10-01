@@ -83,6 +83,10 @@ static const String changelogText = ''
 
   '- Search ignores responses for outdated queries.\n\n'
 
+  '- The Other screen now follows the selected location and ignores stale requests.\n\n'
+
+  '- Additional metrics, including solar radiation, now use the normalized forecast data.\n\n'
+
   // 1.1.0r
   '1.1.0r\n'
   'Update system release.\n\n'
