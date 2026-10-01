@@ -208,12 +208,14 @@ class WeatherScreenState extends State<WeatherScreen>
   bool _showStatusToast = false;
   bool _showCompactHeader = false;
   bool _isUsingFallbackLocation = false;
+  bool _isLocationManuallySelected = false;
   bool _shakeRefreshEnabled = true;
   bool _isShakeDetectorListening = false;
   bool _isRefreshInProgress = false;
 
   Map<String, dynamic>? _cachedTip;
   bool _isInitialized = false;
+  int _weatherRequestId = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -334,8 +336,9 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   Future<void> _initializeApp() async {
+    final requestId = ++_weatherRequestId;
     await _dataSystem.init();
-    if (!mounted) return;
+    if (!mounted || requestId != _weatherRequestId) return;
     debugPrint('DataSystem инициализирован');
 
     _loadAllFromStorage();
@@ -348,15 +351,17 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   Future<void> _updateWeatherInBackground() async {
+    final requestId = ++_weatherRequestId;
     try {
       if (lat == null || lon == null) {
         final position = await WeatherService.getCurrentPosition();
-        if (!mounted) return;
+        if (!mounted || requestId != _weatherRequestId) return;
         lat = position.latitude;
         lon = position.longitude;
+        _isLocationManuallySelected = false;
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _weatherRequestId) return;
 
       // 🔥 ПОКАЗЫВАЕМ ДИАЛОГ ТОЛЬКО ЕСЛИ НЕТ КЕША
       if (weatherData == null) {
@@ -366,7 +371,9 @@ class WeatherScreenState extends State<WeatherScreen>
       lat ??= 55.7558;
       lon ??= 37.6173;
       _isUsingFallbackLocation = true;
+      _isLocationManuallySelected = false;
     }
+    if (!mounted || requestId != _weatherRequestId) return;
     await _fetchFreshData();
   }
 
@@ -383,14 +390,23 @@ class WeatherScreenState extends State<WeatherScreen>
       lat: lat,
       lon: lon,
       locationDetails: locationDetails,
+      isLocationManuallySelected: _isLocationManuallySelected,
     );
   }
 
   Future<void> _fetchFreshData() async {
-    try {
-      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+    final requestId = ++_weatherRequestId;
+    final requestLat = lat;
+    final requestLon = lon;
+    if (requestLat == null || requestLon == null) return;
 
-      if (!mounted) return;
+    try {
+      final response = await WeatherService.fetchAllWeatherData(
+        requestLat,
+        requestLon,
+      );
+
+      if (!mounted || requestId != _weatherRequestId) return;
 
       if (response.hasError) {
         final error = response.errorMessage ?? '';
@@ -439,13 +455,13 @@ class WeatherScreenState extends State<WeatherScreen>
         }
       });
 
-       _loadingManager.finishLoading(fromStorage: false);
+        _loadingManager.finishLoading(fromStorage: false);
       _loadingManager.setCacheTimestamp(DateTime.now());
 
       _updateTip();
       _saveToStorage();
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _weatherRequestId) return;
       if (weatherData != null) {
         setState(() => _showStatusToast = true);
         if (e.toString().contains('SocketException') ||
@@ -495,6 +511,8 @@ class WeatherScreenState extends State<WeatherScreen>
         sunData = allData['sunData'];
         cityName = allData['city'] ?? _localeManager.getText('loading');
         locationDetails = allData['locationDetails'] as Map<String, dynamic>?;
+        _isLocationManuallySelected =
+            allData['isLocationManuallySelected'] == true;
 
         if (allData.containsKey('lat') && allData['lat'] != null) {
           lat = allData['lat'] as double?;
@@ -516,7 +534,7 @@ class WeatherScreenState extends State<WeatherScreen>
 
       _updateTip();
 
-            final timestamp = allData['timestamp'];
+        final timestamp = allData['timestamp'];
       if (timestamp != null && mounted) {
         try {
           final cacheTime = DateTime.parse(timestamp.toString());
@@ -563,36 +581,43 @@ class WeatherScreenState extends State<WeatherScreen>
       locationText = newCityName;
       subLocationText = null;
       _isUsingFallbackLocation = false;
+      _isLocationManuallySelected = true;
       _showStatusToast = false;
     });
     _loadingManager.startLoading();
     if (mounted) setState(() {});
     await _fetchFreshData();
   }
+
   // ============================================================
   // ОБНОВЛЕНИЕ ПОГОДЫ
   // ============================================================
   Future<void> _refreshWeather() async {
     if (_isRefreshInProgress || _loadingManager.isLoading) return;
+    final requestId = ++_weatherRequestId;
     _isRefreshInProgress = true;
     try {
       _loadingManager.startRefreshing();
       if (mounted) setState(() {});
-      try {
-        final position = await WeatherService.getCurrentPosition();
-        if (!mounted) return;
-        lat = position.latitude;
-        lon = position.longitude;
-        _isUsingFallbackLocation = false;
-      } catch (e) {
-        if (!mounted) return;
-        if (weatherData == null) {
-          await showLocationErrorDialog(context);
+      if (!_isLocationManuallySelected) {
+        try {
+          final position = await WeatherService.getCurrentPosition();
+          if (!mounted || requestId != _weatherRequestId) return;
+          lat = position.latitude;
+          lon = position.longitude;
+          _isUsingFallbackLocation = false;
+        } catch (e) {
+          if (!mounted || requestId != _weatherRequestId) return;
+          if (weatherData == null) {
+            await showLocationErrorDialog(context);
+            if (!mounted || requestId != _weatherRequestId) return;
+          }
+          lat ??= 55.7558;
+          lon ??= 37.6173;
+          _isUsingFallbackLocation = true;
         }
-        lat ??= 55.7558;
-        lon ??= 37.6173;
-        _isUsingFallbackLocation = true;
       }
+      if (!mounted || requestId != _weatherRequestId) return;
       await _fetchFreshData();
       _updateTip();
       if (mounted) setState(() {});

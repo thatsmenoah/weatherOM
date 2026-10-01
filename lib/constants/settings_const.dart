@@ -73,9 +73,15 @@ class SettingsConst {
 static const String changelogText = ''
   // 1.1.1r
   '1.1.1r\n'
-  'Stability fix.\n\n'
-  '- Fixed the app hanging on first launch while waiting for the GPS fix.\n\n'
-  '- Location now falls back to the last known position, so data loads quickly.\n\n'
+  'Stability and location update.\n\n'
+  '- Added a timeout and lower-accuracy fallback for GPS lookup.\n\n'
+  '- Uses the last known location when one is available.\n\n'
+
+  '- Refresh keeps the manually selected city instead of switching back to GPS.\n\n'
+
+  '- Older weather requests can no longer overwrite data for a newly selected location.\n\n'
+
+  '- Search ignores responses for outdated queries.\n\n'
 
   // 1.1.0r
   '1.1.0r\n'
@@ -83,6 +89,7 @@ static const String changelogText = ''
   '- Added update check: the app asks Firebase for the latest version on launch.\n\n'
   '- Added an update button in the bottom navigation that downloads the new build.\n\n'
   '- New versions install straight from GitHub Releases, no Google Play needed.\n\n'
+
   '- Added anonymous sign-in: each install gets its own random ID, no registration.\n\n'
   '- Version in settings is now read from the app itself.\n\n'
 

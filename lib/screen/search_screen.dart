@@ -133,12 +133,12 @@ class _SearchScreenState extends State<SearchScreen>
   void _onSearchChanged() {
     final query = _searchController.text.trim();
     if (query.length < 2) {
-      if (_results.isNotEmpty || _errorMessage != null) {
-        setState(() {
-          _results = [];
-          _errorMessage = null;
-        });
-      }
+      ++_searchRequestId;
+      setState(() {
+        _results = [];
+        _errorMessage = null;
+        _isLoading = false;
+      });
       return;
     }
     _searchLocations(query);
@@ -209,15 +209,15 @@ class _SearchScreenState extends State<SearchScreen>
 
   bool _isFavorite(_LocationEntry location) {
     return _favorites.any((item) =>
-        item.latitude == location.latitude && item.longitude == location.longitude);
+      item.latitude == location.latitude && item.longitude == location.longitude);
   }
 
   Future<void> _toggleFavorite(_LocationEntry location) async {
     setState(() {
       if (_isFavorite(location)) {
         _favorites.removeWhere((item) =>
-            item.latitude == location.latitude &&
-            item.longitude == location.longitude);
+          item.latitude == location.latitude &&
+          item.longitude == location.longitude);
       } else {
         _favorites.insert(0, location);
       }
@@ -227,7 +227,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Future<void> _selectLocation(_LocationEntry location) async {
     setState(() {
-      _recent.removeWhere((item) =>
+        _recent.removeWhere((item) =>
           item.latitude == location.latitude && item.longitude == location.longitude);
       _recent.insert(0, location);
       if (_recent.length > 8) _recent = _recent.take(8).toList();

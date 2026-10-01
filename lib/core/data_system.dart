@@ -6,7 +6,7 @@ import '../core/locale_manager.dart';
 
 class DataSystem {
   final String _fileName;
-  
+
   Map<String, dynamic>? _cachedData;
   DateTime? _lastUpdateTime;
   static const _cacheMaxAge = Duration(hours: 6);
@@ -72,14 +72,15 @@ class DataSystem {
       'lon': raw['lon'],
       'timestamp': raw['timestamp'],
       'locationDetails': raw['locationDetails'],
+      'isLocationManuallySelected': raw['isLocationManuallySelected'] == true,
     };
   }
 
   Map<String, dynamic>? _deserializeSunData(Map<String, dynamic>? sun) {
     if (sun == null) return null;
     return {
-      'sunrise': sun['sunrise'] != null ? DateTime.tryParse(sun['sunrise'].toString()) : null,
-      'sunset': sun['sunset'] != null ? DateTime.tryParse(sun['sunset'].toString()) : null,
+        'sunrise': sun['sunrise'] != null ? DateTime.tryParse(sun['sunrise'].toString()) : null,
+        'sunset': sun['sunset'] != null ? DateTime.tryParse(sun['sunset'].toString()) : null,
       'timezoneOffsetSeconds': sun['timezoneOffsetSeconds'] as int? ?? 0,
     };
   }
@@ -103,6 +104,7 @@ class DataSystem {
     double? lat,
     double? lon,
     Map<String, dynamic>? locationDetails,
+    bool isLocationManuallySelected = false,
   }) async {
     try {
       if (weatherData == null || weatherData.isEmpty) {
@@ -121,6 +123,7 @@ class DataSystem {
         'lon': lon,
         'timestamp': DateTime.now().toIso8601String(),
         'locationDetails': locationDetails,
+        'isLocationManuallySelected': isLocationManuallySelected,
       };
 
       final file = await _getFile();
