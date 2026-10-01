@@ -87,6 +87,8 @@ static const String changelogText = ''
 
   '- Additional metrics, including solar radiation, now use the normalized forecast data.\n\n'
 
+  '- Reorganized the weather screen into focused, reusable UI components.\n\n'
+
   // 1.1.0r
   '1.1.0r\n'
   'Update system release.\n\n'

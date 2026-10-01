@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../utils/weather_utils.dart';
-import '../utils/time_utils.dart';
+
 import '../core/locale_manager.dart';
+import '../utils/time_utils.dart';
+import '../utils/weather_utils.dart';
 
 class CompactWeatherHeader extends StatelessWidget {
   final String cityName;
@@ -24,7 +25,6 @@ class CompactWeatherHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localeManager = LocaleManager();
-    
     final weekdays = [
       localeManager.getText('mon_short'),
       localeManager.getText('tue_short'),
@@ -53,21 +53,16 @@ class CompactWeatherHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      cityName,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        height: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                child: Text(
+                  cityName,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
