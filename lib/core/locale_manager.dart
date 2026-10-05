@@ -292,6 +292,8 @@ class LocaleManager {
       // ============ FAVORITES ============
       'favorites_title': 'Избранное',
       'current_location': 'Текущее местоположение',
+      'current_location_section': 'Актуальная локация',
+      'detecting_location': 'Определяем местоположение...',
       'recent_searches': 'Недавно искали',
       'favorite_locations': 'Избранные локации',
       'search_city': 'Поиск города...',
@@ -607,6 +609,8 @@ class LocaleManager {
       // ============ FAVORITES ============
       'favorites_title': 'Favorites',
       'current_location': 'Current location',
+      'current_location_section': 'Current location',
+      'detecting_location': 'Detecting location...',
       'recent_searches': 'Recent searches',
       'favorite_locations': 'Favorite locations',
       'search_city': 'Search city...',

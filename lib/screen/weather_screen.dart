@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shake/shake.dart';
@@ -48,6 +50,16 @@ class WeatherScreenState extends State<WeatherScreen>
   double? get currentLat => lat;
   double? get currentLon => lon;
   String get currentCityName => cityName;
+
+  // Реальные координаты устройства. Они не меняются при ручном выборе города,
+  // поэтому по ним всегда можно вернуться к погоде "у себя на районе".
+  double? _deviceLat;
+  double? _deviceLon;
+  String? _deviceLocationName;
+
+  double? get deviceLat => _deviceLat;
+  double? get deviceLon => _deviceLon;
+  String? get deviceLocationName => _deviceLocationName;
 
   final GlobalKey _tipsKey = GlobalKey();
   final GlobalKey _moveSunKey = GlobalKey();
@@ -211,6 +223,8 @@ class WeatherScreenState extends State<WeatherScreen>
         if (!mounted || requestId != _weatherRequestId) return;
         lat = position.latitude;
         lon = position.longitude;
+        _deviceLat = position.latitude;
+        _deviceLon = position.longitude;
         _isLocationManuallySelected = false;
       }
     } catch (e) {
@@ -301,6 +315,12 @@ class WeatherScreenState extends State<WeatherScreen>
         _showStatusToast = false;
       });
 
+      // Поиск показывает актуальную локацию в отдельной секции, даже если
+      // пользователь ушёл в другой город — запоминаем её название.
+      if (!_isLocationManuallySelected) {
+        _deviceLocationName = locationText;
+      }
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final moveSun = _moveSunKey.currentState;
         if (moveSun != null) {
@@ -385,6 +405,14 @@ class WeatherScreenState extends State<WeatherScreen>
         subLocationText = null;
       }
 
+      // Если в кеше лежит погода "у себя на районе", значит эти координаты —
+      // актуальная локация устройства, а не результат ручного поиска.
+      if (!_isLocationManuallySelected && lat != null && lon != null) {
+        _deviceLat = lat;
+        _deviceLon = lon;
+        _deviceLocationName = locationText;
+      }
+
       _updateTip();
 
         final timestamp = allData['timestamp'];
@@ -442,6 +470,56 @@ class WeatherScreenState extends State<WeatherScreen>
     await _fetchFreshData();
   }
 
+  /// Возвращает погоду к текущему местоположению пользователя.
+  /// Возвращает координаты, по которым реально считается прогноз, либо null,
+  /// если местоположение определить не удалось и пользователь остаётся там,
+  /// где был.
+  Future<(double, double)?> useCurrentLocation() async {
+    final requestId = ++_weatherRequestId;
+    var targetLat = _deviceLat;
+    var targetLon = _deviceLon;
+
+    try {
+      final position = await WeatherService.getCurrentPosition();
+      if (!mounted || requestId != _weatherRequestId) return null;
+      targetLat = position.latitude;
+      targetLon = position.longitude;
+      _deviceLat = position.latitude;
+      _deviceLon = position.longitude;
+    } catch (e) {
+      debugPrint('useCurrentLocation: GPS недоступен - $e');
+    }
+
+    if (!mounted || requestId != _weatherRequestId) return null;
+
+    final resolvedLat = targetLat;
+    final resolvedLon = targetLon;
+    if (resolvedLat == null || resolvedLon == null) {
+      if (weatherData != null) {
+        setState(() => _showStatusToast = true);
+      } else {
+        await showLocationErrorDialog(context);
+      }
+      return null;
+    }
+
+    setState(() {
+      lat = resolvedLat;
+      lon = resolvedLon;
+      _isLocationManuallySelected = false;
+      _isUsingFallbackLocation = false;
+      _showStatusToast = false;
+      locationText =
+          _deviceLocationName ?? _localeManager.getText('current_location');
+      subLocationText = null;
+    });
+    _loadingManager.startLoading();
+    if (mounted) setState(() {});
+
+    unawaited(_fetchFreshData());
+    return (resolvedLat, resolvedLon);
+  }
+
   // ============================================================
   // ОБНОВЛЕНИЕ ПОГОДЫ
   // ============================================================
@@ -458,6 +536,8 @@ class WeatherScreenState extends State<WeatherScreen>
           if (!mounted || requestId != _weatherRequestId) return;
           lat = position.latitude;
           lon = position.longitude;
+          _deviceLat = position.latitude;
+          _deviceLon = position.longitude;
           _isUsingFallbackLocation = false;
         } catch (e) {
           if (!mounted || requestId != _weatherRequestId) return;

@@ -71,6 +71,12 @@ class SettingsConst {
 
   // CHANGELOG
 static const String changelogText = ''
+  // 1.1.2patch
+  '1.1.2patch\n'
+  'Current location in search.\n\n'
+  '- Added an "Current location" section above recent searches.\n\n'
+  '- One tap returns the weather to your real GPS location.\n\n'
+
   // 1.1.1r
   '1.1.1r\n'
   'Stability and location update.\n\n'

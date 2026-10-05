@@ -51,14 +51,14 @@ flutter run
 GitHub Actions собирает подписанный APK, создаёт GitHub Release и обновляет
 Firestore при push нового тега `v*`. Сначала поднимите `version` в `pubspec.yaml`
 и отправьте коммит в `main`, затем создайте уникальный тег. Например, для версии
-`1.1.1-r+10`:
+`1.1.2-patch+11`:
 
 ```powershell
-git tag v1.1.1r-build10
-git push origin v1.1.1r-build10
+git tag v1.1.2patch-build11
+git push origin v1.1.2patch-build11
 ```
 
 Тег `v1.1.1r` уже использовался, поэтому повторно применять его нельзя. APK
-публикуется как `weather-cloud-1.1.1r.apk`; после завершения workflow приложение
+публикуется как `weather-cloud-1.1.2patch.apk`; после завершения workflow приложение
 предложит его пользователям с более старым `versionCode`.
 

@@ -241,10 +241,23 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   void _navigateToSearch() {
     weatherScreenKey.currentState?.setShakeRefreshEnabled(false);
+    final weatherState = weatherScreenKey.currentState;
     Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => SearchScreen(
+        currentLat: weatherState?.deviceLat,
+        currentLon: weatherState?.deviceLon,
+        currentName: weatherState?.deviceLocationName,
+        onCurrentLocationSelected: () {
+          Navigator.pop(context);
+          final state = weatherScreenKey.currentState;
+          if (state == null) return;
+          state.useCurrentLocation().then((coords) {
+            if (coords == null || !mounted) return;
+            _activityScreenKey.currentState?.setLocation(coords.$1, coords.$2);
+          });
+        },
         onLocationSelected: (lat, lon, name) {
           weatherScreenKey.currentState?.setLocation(lat, lon, name);
           _activityScreenKey.currentState?.setLocation(lat, lon);

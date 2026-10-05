@@ -6,11 +6,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/settings_const.dart';
 import '../core/locale_manager.dart';
+import '../services/weather_service.dart';
 
 class SearchScreen extends StatefulWidget {
   final Function(double lat, double lon, String name)? onLocationSelected;
 
-  const SearchScreen({super.key, this.onLocationSelected});
+  /// Возврат к текущему местоположению пользователя (GPS).
+  final VoidCallback? onCurrentLocationSelected;
+
+  /// Координаты и название актуальной локации, если они уже известны.
+  final double? currentLat;
+  final double? currentLon;
+  final String? currentName;
+
+  const SearchScreen({
+    super.key,
+    this.onLocationSelected,
+    this.onCurrentLocationSelected,
+    this.currentLat,
+    this.currentLon,
+    this.currentName,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -63,6 +79,8 @@ class _SearchScreenState extends State<SearchScreen>
   List<_LocationEntry> _results = [];
   List<_LocationEntry> _favorites = [];
   List<_LocationEntry> _recent = [];
+  _LocationEntry? _currentLocation;
+  bool _isResolvingCurrentLocation = false;
   bool _isLoading = false;
   bool _isFavoritesOpen = false;
   bool _isFavoritesMounted = false;
@@ -78,6 +96,7 @@ class _SearchScreenState extends State<SearchScreen>
     );
     _loadSavedLocations();
     _searchController.addListener(_onSearchChanged);
+    _resolveCurrentLocation();
   }
 
   @override
@@ -225,6 +244,64 @@ class _SearchScreenState extends State<SearchScreen>
     await _saveLocations();
   }
 
+  /// Определяет актуальную локацию. Если экран погоды её уже знает (получил GPS
+  /// при старте или хранит в кеше), используем её, иначе спрашиваем сами.
+  Future<void> _resolveCurrentLocation() async {
+    var lat = widget.currentLat;
+    var lon = widget.currentLon;
+    var name = widget.currentName ?? '';
+    var subtitle = '';
+
+    if (lat == null || lon == null) {
+      setState(() => _isResolvingCurrentLocation = true);
+      try {
+        final position = await WeatherService.getCurrentPosition();
+        lat = position.latitude;
+        lon = position.longitude;
+        final details = await WeatherService.getLocationDetails(
+          lat,
+          lon,
+          _localeManager,
+        );
+        final geo = GeocodingResult.fromMap(details.toMap());
+        name = geo.displayName;
+        subtitle = geo.subtitle ?? '';
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _isResolvingCurrentLocation = false;
+          _currentLocation = null;
+        });
+        return;
+      }
+      if (!mounted) return;
+    }
+
+    final resolvedLat = lat;
+    final resolvedLon = lon;
+
+    setState(() {
+      _isResolvingCurrentLocation = false;
+      _currentLocation = _LocationEntry(
+        name: name.isEmpty ? _localeManager.getText('current_location') : name,
+        subtitle: subtitle,
+        latitude: resolvedLat,
+        longitude: resolvedLon,
+      );
+    });
+  }
+
+  void _onCurrentLocationTap() {
+    final location = _currentLocation;
+    if (location == null) return;
+    final handler = widget.onCurrentLocationSelected;
+    if (handler != null) {
+      handler();
+      return;
+    }
+    _selectLocation(location);
+  }
+
   Future<void> _selectLocation(_LocationEntry location) async {
     setState(() {
         _recent.removeWhere((item) =>
@@ -345,6 +422,10 @@ class _SearchScreenState extends State<SearchScreen>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
       children: [
+        if (_currentLocation != null || _isResolvingCurrentLocation) ...[
+          _buildSectionTitle(_localeManager.getText('current_location_section')),
+          _buildCurrentLocationRow(),
+        ],
         if (_recent.isNotEmpty) ...[
           _buildSectionTitle(_localeManager.getText('recent_searches')),
           ..._recent.map(_buildLocationRow),
@@ -473,6 +554,109 @@ class _SearchScreenState extends State<SearchScreen>
           ),
           const SizedBox(width: 4),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentLocationRow() {
+    final location = _currentLocation;
+    if (location == null) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Text(
+              _localeManager.getText('detecting_location'),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _onCurrentLocationTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.my_location_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      location.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (location.subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        location.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.35),
+              ),
+              const SizedBox(width: 2),
+            ],
+          ),
+        ),
       ),
     );
   }
