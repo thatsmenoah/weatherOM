@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../core/locale_manager.dart';
 
@@ -131,6 +133,18 @@ class TipsSystem {
   String _formatTime(DateTime time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
+
+  /// Выбирает случайный совет из списка.
+  ///
+  /// Раньше здесь стояло `messages[DateTime.now().millisecond % messages.length]`:
+  /// это не случайность, а индекс по миллисекундам, из-за чего в одну и ту же
+  /// миллисекунду совет выбирался одинаковым.
+  String _pick(List<String> messages) {
+    if (messages.isEmpty) return '';
+    return messages[_random.nextInt(messages.length)];
+  }
+
+  final Random _random = Random();
   
   Map<String, dynamic> _createSnowTip(LocaleManager localeManager) {
     final messages = [
@@ -142,7 +156,7 @@ class TipsSystem {
     return {
       'type': 'snow',
       'title': localeManager.getText('tip_snow_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.ac_unit,
@@ -171,7 +185,7 @@ class TipsSystem {
     return {
       'type': 'rain',
       'title': '${localeManager.getText('tip_rain_title')} $intensity',
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '${localeManager.getText('precipitation_prob')}: ${pop.round()}%',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.beach_access,
@@ -191,7 +205,7 @@ class TipsSystem {
     return {
       'type': 'sunrise',
       'title': localeManager.getText('tip_sunrise_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '${localeManager.getText('sunrise')} ${_formatTime(sunrise)}',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.wb_sunny,
@@ -210,7 +224,7 @@ class TipsSystem {
     return {
       'type': 'sunset',
       'title': localeManager.getText('tip_sunset_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '${localeManager.getText('sunset')} ${_formatTime(sunset)}',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.nightlight_round,
@@ -264,7 +278,7 @@ class TipsSystem {
     return {
       'type': 'night',
       'title': localeManager.getText('tip_night_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.nightlight_round,
@@ -303,7 +317,7 @@ class TipsSystem {
     return {
       'type': 'morning',
       'title': localeManager.getText('tip_morning_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.wb_sunny,
@@ -320,7 +334,7 @@ class TipsSystem {
     return {
       'type': 'clear',
       'title': localeManager.getText('tip_clear_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '${localeManager.getText('feels_like')} $feelsLike°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.wb_sunny,
@@ -337,7 +351,7 @@ class TipsSystem {
     return {
       'type': 'clouds',
       'title': localeManager.getText('tip_clouds_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.cloud,
@@ -354,7 +368,7 @@ class TipsSystem {
     return {
       'type': 'rain',
       'title': localeManager.getText('tip_rainy_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': localeManager.getText('precipitation'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.beach_access,
@@ -371,7 +385,7 @@ class TipsSystem {
     return {
       'type': 'snow',
       'title': localeManager.getText('tip_snowy_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': '$temp°C',
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.ac_unit,
@@ -388,7 +402,7 @@ class TipsSystem {
     return {
       'type': 'thunderstorm',
       'title': localeManager.getText('tip_thunder_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': localeManager.getText('precipitation'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.flash_on,
@@ -405,7 +419,7 @@ class TipsSystem {
     return {
       'type': 'drizzle',
       'title': localeManager.getText('tip_drizzle_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': localeManager.getText('precipitation'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.grain,
@@ -422,7 +436,7 @@ class TipsSystem {
     return {
       'type': 'fog',
       'title': localeManager.getText('tip_fog_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': localeManager.getText('visibility'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.foggy,
@@ -439,7 +453,7 @@ class TipsSystem {
     return {
       'type': 'default',
       'title': localeManager.getText('tip_default_title'),
-      'message': messages[DateTime.now().millisecond % messages.length],
+      'message': _pick(messages),
       'time': localeManager.getText('no_data'),
       'color': const Color(0xFF9E9E9E),
       'icon': Icons.coffee,

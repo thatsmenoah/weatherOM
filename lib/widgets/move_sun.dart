@@ -19,10 +19,13 @@ class MoveSun extends StatefulWidget {
   });
 
   @override
-  State<MoveSun> createState() => _MoveSunState();
+  MoveSunState createState() => MoveSunState();
 }
 
-class _MoveSunState extends State<MoveSun> with SingleTickerProviderStateMixin {
+/// Состояние публичное: экран погоды дёргает [updatePosition] через
+/// GlobalKey, когда пришли новые данные. Раньше это делалось через
+/// `(state as dynamic)`, и переименование метода ломало всё только в рантайме.
+class MoveSunState extends State<MoveSun> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Timer _updateTimer;
   double _progress = 0.0;

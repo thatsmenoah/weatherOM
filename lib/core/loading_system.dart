@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../utils/time_utils.dart';
 import '../core/locale_manager.dart';
@@ -16,8 +18,12 @@ enum LoadingState {
   offline,
 }
 
-/// Менеджер состояний загрузки
-class LoadingStateManager extends ChangeNotifier {
+/// Менеджер состояний загрузки.
+///
+/// Намеренно не [ChangeNotifier]: подписчиков нет, экраны читают геттеры
+/// после перестроения через setState. Наследование от ChangeNotifier только
+/// создавало лишние notifyListeners() без единого слушателя.
+class LoadingStateManager {
   LoadingState _state = LoadingState.initial;
   String _errorMessage = '';
   bool _isUsingStorage = false;
@@ -51,13 +57,11 @@ class LoadingStateManager extends ChangeNotifier {
   void startLoading() {
     _state = LoadingState.loading;
     _errorMessage = '';
-    notifyListeners();
   }
 
   void startRefreshing() {
     _state = LoadingState.refreshing;
     _errorMessage = '';
-    notifyListeners();
   }
 
   void finishLoading({bool fromStorage = false}) {
@@ -68,36 +72,30 @@ class LoadingStateManager extends ChangeNotifier {
     if (!fromStorage) {
       _lastUpdateTime = DateTime.now();
     }
-    notifyListeners();
   }
 
   void setCacheTimestamp(DateTime time) {
     _cacheTimestamp = time;
-    notifyListeners();
   }
 
   void setLastUpdateTime(DateTime time) {
     _lastUpdateTime = time;
-    notifyListeners();
   }
 
   void setError(String message) {
     _state = LoadingState.error;
     _errorMessage = message;
-    notifyListeners();
   }
 
   void setOfflineMode() {
     _state = LoadingState.offline;
     _isUsingStorage = true;
-    notifyListeners();
   }
 
   void reset() {
     _state = LoadingState.initial;
     _errorMessage = '';
     _isUsingStorage = false;
-    notifyListeners();
   }
 }
 
@@ -156,46 +154,6 @@ class UpdateTimeIndicator extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// ТОЛЬКО КРУЖОЧЕК — БЕЗ СЛОВА, БЕЗ СЕРОГО ФОНА
-class TopLoadingIndicator extends StatelessWidget {
-  final bool isVisible;
-
-  const TopLoadingIndicator({
-    super.key,
-    required this.isVisible,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: isVisible ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 300),
-      child: Container(
-        height: 50,
-        width: double.infinity,
-        color: Colors.transparent,
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
-              shape: BoxShape.circle,
-            ),
-            child: const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -282,7 +240,7 @@ class StatusToast extends StatefulWidget {
   const StatusToast({
     super.key,
     required this.isVisible,
-    this.title = 'Нет сети',
+    required this.title,
     this.onDismiss,
     this.backgroundColor,
   });
@@ -299,6 +257,7 @@ class _StatusToastState extends State<StatusToast>
 
   double _dragDistance = 0;
   bool _isDragging = false;
+  Timer? _autoDismissTimer;
 
   @override
   void initState() {
@@ -326,12 +285,17 @@ class _StatusToastState extends State<StatusToast>
 
     if (widget.isVisible) {
       _controller.forward();
-      Future.delayed(const Duration(seconds: 4), () {
-        if (mounted && widget.isVisible && !_isDragging) {
-          _dismiss();
-        }
-      });
+      _scheduleAutoDismiss();
     }
+  }
+
+  void _scheduleAutoDismiss() {
+    _autoDismissTimer?.cancel();
+    _autoDismissTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && widget.isVisible && !_isDragging) {
+        _dismiss();
+      }
+    });
   }
 
   @override
@@ -339,12 +303,9 @@ class _StatusToastState extends State<StatusToast>
     super.didUpdateWidget(oldWidget);
     if (widget.isVisible && !oldWidget.isVisible) {
       _controller.forward();
-      Future.delayed(const Duration(seconds: 4), () {
-        if (mounted && widget.isVisible && !_isDragging) {
-          _dismiss();
-        }
-      });
+      _scheduleAutoDismiss();
     } else if (!widget.isVisible && oldWidget.isVisible) {
+      _autoDismissTimer?.cancel();
       _dismiss();
     }
   }
@@ -379,6 +340,7 @@ class _StatusToastState extends State<StatusToast>
 
   @override
   void dispose() {
+    _autoDismissTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

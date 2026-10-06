@@ -5,7 +5,18 @@ class LocaleManager {
   factory LocaleManager() => _instance;
   LocaleManager._internal();
 
+  /// Локали хранятся по-русски: такие ключи уже лежат в SharedPreferences, менять
+  /// их нельзя, иначе у пользователей сбросится язык. Сравниваться со строкой
+  /// в разных файлах больше не нужно — есть [isRussian] и [languageCode].
+  static const String russianLocale = 'Русский';
+  static const String englishLocale = 'Английский';
+
   String _currentLocale = 'Английский';
+
+  bool get isRussian => _currentLocale == russianLocale;
+
+  /// Код языка для геокодера.
+  String get languageCode => isRussian ? 'ru' : 'en';
 
   // Все переводы
   static const Map<String, Map<String, String>> _translations = {
@@ -44,6 +55,12 @@ class LocaleManager {
       'storage': 'Хранилище',
       'storage_subtitle': 'Использование памяти устройства',
       'clear_data': 'Очистить данные',
+      'clear_failed': 'Не удалось очистить данные',
+      'install_failed': 'Не удалось открыть установщик обновления',
+      'size_gb': 'ГБ',
+      'size_mb': 'МБ',
+      'size_kb': 'КБ',
+      'size_b': 'Б',
       'about_app': 'О приложении',
       'version': 'Версия',
       'changelog': 'Что нового?',
@@ -361,6 +378,12 @@ class LocaleManager {
       'storage': 'Storage',
       'storage_subtitle': 'Device memory usage',
       'clear_data': 'Clear data',
+      'clear_failed': 'Could not clear data',
+      'install_failed': 'Could not open the update installer',
+      'size_gb': 'GB',
+      'size_mb': 'MB',
+      'size_kb': 'KB',
+      'size_b': 'B',
       'about_app': 'About',
       'version': 'Version',
       'changelog': 'What\'s new?',
@@ -661,9 +684,16 @@ class LocaleManager {
   }
 
   // Получить перевод по ключу
-  String getText(String key) {
-    return _translations[_currentLocale]?[key] ?? key;
+  //
+  // [locale] позволяет прочитать конкретный язык, не переключая приложение —
+  // этим пользуются тесты паритета переводов.
+  String getText(String key, {String? locale}) {
+    final target = locale ?? _currentLocale;
+    return _translations[target]?[key] ?? key;
   }
+
+  // Все переводы по языкам: нужно для проверки, что ключи не потерялись.
+  Map<String, Map<String, String>> get translations => _translations;
 
   // Получить перевод с подстановкой
   String getTextWithArgs(String key, Map<String, String> args) {

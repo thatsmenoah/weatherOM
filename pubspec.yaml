@@ -2,13 +2,12 @@ name: weather_app
 description: "See the real weather in Weather Cloud"
 publish_to: 'none'
 
-version: 1.1.2-patch+11
+version: 1.1.2-patch+12
 
 environment:
   sdk: ^3.11.4
 
 dependencies:
-  url_launcher: ^6.2.0
   path_provider: ^2.1.0
   flutter:
     sdk: flutter
@@ -16,11 +15,8 @@ dependencies:
     sdk: flutter
   http: ^1.1.0
   intl: ^0.20.2
-  cupertino_icons: ^1.0.8
   geolocator: ^14.0.2
   shared_preferences: ^2.2.2
-  image_picker: ^1.0.7
-  dart_suncalc: ^0.2.1
   flutter_dotenv: ^5.2.1
   shake: ^3.0.0
   firebase_core: ^4.15.0
@@ -34,6 +30,8 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.0
+  path_provider_platform_interface: ^2.1.0
+  plugin_platform_interface: ^2.1.0
 
 flutter:
   uses-material-design: true

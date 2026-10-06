@@ -9,7 +9,7 @@ import 'move_sun.dart';
 class WeatherSunContent extends StatelessWidget {
   final Map<String, dynamic>? sunData;
   final LocaleManager localeManager;
-  final GlobalKey? moveSunKey;
+  final GlobalKey<MoveSunState>? moveSunKey;
 
   const WeatherSunContent({
     super.key,

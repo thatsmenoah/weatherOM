@@ -3,17 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shake/shake.dart';
+import 'package:http/http.dart' as http;
 import '../core/data_system.dart';
 import '../core/tips_system.dart';
 import '../core/loading_system.dart';
 import '../services/weather_service.dart';
+import '../services/weather_normalizer.dart';
 import '../utils/weather_utils.dart';
 import '../constants/weather_const.dart';
+import '../widgets/app_loading_indicator.dart';
 import '../widgets/compact_weather_header.dart';
 import '../widgets/weather_forecast_widgets.dart';
 import '../widgets/weather_main_card.dart';
 import '../widgets/weather_screen_widgets.dart';
 import '../widgets/weather_conditions_widgets.dart';
+import '../widgets/move_sun.dart';
 import '../core/locale_manager.dart';
 import '../widgets/error_dialog.dart';
 
@@ -62,13 +66,16 @@ class WeatherScreenState extends State<WeatherScreen>
   String? get deviceLocationName => _deviceLocationName;
 
   final GlobalKey _tipsKey = GlobalKey();
-  final GlobalKey _moveSunKey = GlobalKey();
+  final GlobalKey<MoveSunState> _moveSunKey = GlobalKey<MoveSunState>();
   final ScrollController _scrollController = ScrollController();
 
   final DataSystem _dataSystem = DataSystem();
   final TipsSystem _tipsSystem = TipsSystem();
   final LoadingStateManager _loadingManager = LoadingStateManager();
   late final ShakeDetector _shakeDetector;
+
+  /// Клиент текущего сетевого запроса: через close() он обрывается.
+  http.Client? _activeRequestClient;
 
   bool _showStatusToast = false;
   bool _showCompactHeader = false;
@@ -149,9 +156,9 @@ class WeatherScreenState extends State<WeatherScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopShakeDetector();
+    _abortActiveRequest();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _loadingManager.dispose();
     super.dispose();
   }
 
@@ -202,17 +209,27 @@ class WeatherScreenState extends State<WeatherScreen>
 
   Future<void> _initializeApp() async {
     final requestId = ++_weatherRequestId;
-    await _dataSystem.init();
-    if (!mounted || requestId != _weatherRequestId) return;
-    debugPrint('DataSystem инициализирован');
+    try {
+      await _dataSystem.init();
+      if (!mounted || requestId != _weatherRequestId) return;
+      debugPrint('DataSystem инициализирован');
 
-    _loadAllFromStorage();
+      // Раньше чтение кеша шло без try/catch, и один битый файл оставлял экран
+      // навсегда на спиннере: ни ошибки, ни кнопки «Повторить».
+      _loadAllFromStorage();
 
-    if (weatherData == null) {
-      _loadingManager.startLoading();
+      if (weatherData == null) {
+        _loadingManager.startLoading();
+      }
+      if (mounted) setState(() {});
+    } catch (e, stackTrace) {
+      debugPrint('_initializeApp: не удалось прочитать кеш - $e\n$stackTrace');
+      if (!mounted) return;
+      _loadingManager.setError(_localeManager.getText('error'));
+      if (mounted) setState(() {});
+      return;
     }
-    if (mounted) setState(() {});
-    _updateWeatherInBackground();
+    await _updateWeatherInBackground();
   }
 
   Future<void> _updateWeatherInBackground() async {
@@ -228,16 +245,20 @@ class WeatherScreenState extends State<WeatherScreen>
         _isLocationManuallySelected = false;
       }
     } catch (e) {
+      debugPrint('_updateWeatherInBackground: GPS недоступен - $e');
       if (!mounted || requestId != _weatherRequestId) return;
 
-      // 🔥 ПОКАЗЫВАЕМ ДИАЛОГ ТОЛЬКО ЕСЛИ НЕТ КЕША
+      // Диалог показываем только когда показать нечего: при живом кеше
+      // пользователь просто увидит данные и тост.
       if (weatherData == null) {
         await showLocationErrorDialog(context);
       }
 
+      // Демо-координаты — только если своих вообще нет.
+      final hasCoordinates = lat != null && lon != null;
       lat ??= 55.7558;
       lon ??= 37.6173;
-      _isUsingFallbackLocation = true;
+      _isUsingFallbackLocation = !hasCoordinates;
       _isLocationManuallySelected = false;
     }
     if (!mounted || requestId != _weatherRequestId) return;
@@ -267,20 +288,25 @@ class WeatherScreenState extends State<WeatherScreen>
     final requestLon = lon;
     if (requestLat == null || requestLon == null) return;
 
+    // Новый запрос отменяет предыдущий: закрытие клиента обрывает уже
+    // отправленный HTTP-запрос, а не даёт ему зря качать данные в фон.
+    _abortActiveRequest();
+    final client = http.Client();
+    _activeRequestClient = client;
+
     try {
       final response = await WeatherService.fetchAllWeatherData(
         requestLat,
         requestLon,
+        client: client,
       );
 
       if (!mounted || requestId != _weatherRequestId) return;
 
       if (response.hasError) {
         final error = response.errorMessage ?? '';
-        final isOffline = error.contains('SocketException') ||
-            error.contains('TimeoutException') ||
-            error.contains('HandshakeException') ||
-            error.contains('Connection refused');
+        debugPrint('_fetchFreshData: сервис ответил ошибкой - $error');
+        final isOffline = _isOfflineMessage(error);
 
         if (weatherData != null) {
           setState(() => _showStatusToast = true);
@@ -322,39 +348,75 @@ class WeatherScreenState extends State<WeatherScreen>
       }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final moveSun = _moveSunKey.currentState;
-        if (moveSun != null) {
-          (moveSun as dynamic).updatePosition();
-        }
+        if (!mounted) return;
+        _moveSunKey.currentState?.updatePosition();
       });
 
-        _loadingManager.finishLoading(fromStorage: false);
+      _loadingManager.finishLoading(fromStorage: false);
       _loadingManager.setCacheTimestamp(DateTime.now());
 
       _updateTip();
-      _saveToStorage();
-    } catch (e) {
+      await _saveToStorage();
+    } catch (e, stackTrace) {
+      debugPrint('_fetchFreshData: запрос упал - $e\n$stackTrace');
       if (!mounted || requestId != _weatherRequestId) return;
+      final isNetworkIssue = _isNetworkError(e);
       if (weatherData != null) {
         setState(() => _showStatusToast = true);
-        if (e.toString().contains('SocketException') ||
-            e.toString().contains('HandshakeException') ||
-            e.toString().contains('HttpException')) {
+        if (isNetworkIssue) {
           _loadingManager.setOfflineMode();
         } else {
           _loadingManager.setError(_localeManager.getText('update_failed'));
         }
       } else {
-        if (e.toString().contains('SocketException') ||
-            e.toString().contains('HandshakeException') ||
-            e.toString().contains('HttpException')) {
-          _loadingManager.setError(_localeManager.getText('no_internet'));
-        } else {
-          _loadingManager.setError(_localeManager.getText('error'));
-        }
+        _loadingManager.setError(
+          _localeManager.getText(
+            isNetworkIssue ? 'no_internet' : 'error',
+          ),
+        );
         if (mounted) setState(() {});
       }
+    } finally {
+      // Клиент живёт только на время одного запроса.
+      if (identical(_activeRequestClient, client)) {
+        _activeRequestClient = null;
+      }
+      client.close();
     }
+  }
+
+  /// Обрывает текущий сетевой запрос, если он ещё идёт.
+  void _abortActiveRequest() {
+    final client = _activeRequestClient;
+    _activeRequestClient = null;
+    client?.close();
+  }
+
+  /// Раньше это определялось строками вида `e.toString().contains(...)` в четырёх
+  /// местах. Ошибки http живут в [http.ClientException], таймауты — в
+  /// [TimeoutException], всё остальное — обрыв сети.
+  bool _isNetworkError(Object error) {
+    if (error is TimeoutException || error is http.ClientException) {
+      return true;
+    }
+    return error.toString().contains('SocketException');
+  }
+
+  /// Тот же разбор для строки, которую вернул сервис.
+  bool _isOfflineMessage(String message) {
+    return message.contains('SocketException') ||
+        message.contains('ClientException') ||
+        message.contains('TimeoutException') ||
+        message.contains('HandshakeException') ||
+        message.contains('Connection refused');
+  }
+
+  /// Кеш — это json, поэтому вложенные объекты приходят как `Map<String,
+  /// dynamic>`, но после ручной правки файла тип может быть другим.
+  Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
   }
 
   void _updateDisplayLocation(WeatherResponse response) {
@@ -378,19 +440,19 @@ class WeatherScreenState extends State<WeatherScreen>
       debugPrint('forecast содержит ключи: ${allData['forecast']?.keys}');
 
       setState(() {
-        weatherData = allData['weather'];
-        forecastData = allData['forecast'];
-        airQualityData = allData['airQuality'];
-        sunData = allData['sunData'];
+        weatherData = _asMap(allData['weather']);
+        forecastData = _asMap(allData['forecast']);
+        airQualityData = _asMap(allData['airQuality']);
+        sunData = _asMap(allData['sunData']);
         cityName = allData['city'] ?? _localeManager.getText('loading');
-        locationDetails = allData['locationDetails'] as Map<String, dynamic>?;
+        locationDetails = _asMap(allData['locationDetails']);
         _isLocationManuallySelected =
             allData['isLocationManuallySelected'] == true;
 
-        if (allData.containsKey('lat') && allData['lat'] != null) {
-          lat = allData['lat'] as double?;
-          lon = allData['lon'] as double?;
-        }
+        // Раньше здесь стояло `as double?`: JSON-число без дробной части
+        // разбирается как int, и кеш ронял экран целиком.
+        lat = WeatherNormalizer.toDouble(allData['lat']);
+        lon = WeatherNormalizer.toDouble(allData['lon']);
       });
 
       if (locationDetails != null) {
@@ -418,10 +480,13 @@ class WeatherScreenState extends State<WeatherScreen>
         final timestamp = allData['timestamp'];
       if (timestamp != null && mounted) {
         try {
-          final cacheTime = DateTime.parse(timestamp.toString());
-          _loadingManager.setCacheTimestamp(cacheTime);
+          final cacheTime = DateTime.tryParse(timestamp.toString());
+          if (cacheTime != null) {
+            _loadingManager.setCacheTimestamp(cacheTime);
+          }
           _loadingManager.finishLoading(fromStorage: true);
-        } catch (_) {
+        } catch (e) {
+          debugPrint('_loadAllFromStorage: битая метка времени в кеше - $e');
           _loadingManager.finishLoading(fromStorage: true);
         }
       } else {
@@ -436,16 +501,6 @@ class WeatherScreenState extends State<WeatherScreen>
       debugPrint('Валидный кеш отсутствует');
       _loadingManager.startLoading();
       if (mounted) setState(() {});
-    }
-  }
-
-  void scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: WeatherConst.durScrollAnim,
-        curve: Curves.easeOutCubic,
-      );
     }
   }
 
@@ -467,7 +522,12 @@ class WeatherScreenState extends State<WeatherScreen>
     });
     _loadingManager.startLoading();
     if (mounted) setState(() {});
-    await _fetchFreshData();
+    _isRefreshInProgress = true;
+    try {
+      await _fetchFreshData();
+    } finally {
+      _isRefreshInProgress = false;
+    }
   }
 
   /// Возвращает погоду к текущему местоположению пользователя.
@@ -516,7 +576,12 @@ class WeatherScreenState extends State<WeatherScreen>
     _loadingManager.startLoading();
     if (mounted) setState(() {});
 
-    unawaited(_fetchFreshData());
+    _isRefreshInProgress = true;
+    try {
+      await _fetchFreshData();
+    } finally {
+      _isRefreshInProgress = false;
+    }
     return (resolvedLat, resolvedLon);
   }
 
@@ -683,15 +748,14 @@ class WeatherScreenState extends State<WeatherScreen>
     }
 
     if (weatherData == null && _loadingManager.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      );
+      return const AppLoadingOverlay();
     }
 
     if (weatherData != null) {
       return RefreshIndicator(
         onRefresh: _refreshWeather,
-        color: WeatherConst.textPrimary,
+        color: Colors.white,
+        backgroundColor: Colors.transparent,
         child: ScrollConfiguration(
           behavior: NoGlowBehavior(),
           child: SingleChildScrollView(
@@ -802,4 +866,3 @@ class WeatherScreenState extends State<WeatherScreen>
     );
   }
 }
-

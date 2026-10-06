@@ -1,26 +1,59 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import '../core/locale_manager.dart';
 
+import '../core/locale_manager.dart';
+import '../services/weather_normalizer.dart';
+
+/// Файловое хранилище кеша погоды.
+///
+/// Кеш один на файл, поэтому запись защищена мьютексом: два перекрывающихся
+/// сохранения (смена города во время сохраняющей записи) больше не пишут в
+/// один файл одновременно. Запись атомарная — сначала во временный файл, потом
+/// переименование, — так что убийство процесса посреди записи не оставляет
+/// обрезанный json, из-за которого в следующий раз данные молча пропали бы.
 class DataSystem {
   final String _fileName;
 
   Map<String, dynamic>? _cachedData;
   DateTime? _lastUpdateTime;
-  static const _cacheMaxAge = Duration(hours: 6);
+
+  /// Версия схемы кеша. Меняется, когда структура данных становится несовместимой
+  /// с тем, что лежит на диске: старый файл просто пересоздастся, вместо того
+  /// чтобы молча отдавать мусор.
+  static const int _schemaVersion = 2;
+
+  /// Все файлы кеша приложения. Нужен для «очистить всё» в настройках, чтобы
+  /// кнопка не забывала про второстепенные кеши.
+  static const List<String> cacheFileNames = [
+    'weather_data.json',
+    'activity_data.json',
+  ];
+
+  /// Свежим считаем кеш моложе этого срока. Раньше это правило применялось
+  /// только на экране «Другое», а главный экран брал кеш любой давности.
+  static const Duration cacheMaxAge = Duration(hours: 6);
 
   DataSystem({String fileName = 'weather_data.json'}) : _fileName = fileName;
 
   bool get hasData => _cachedData != null;
   DateTime? get lastUpdateTime => _lastUpdateTime;
-  Map<String, dynamic>? get cachedData => _cachedData;
+
+  /// Копия кеша: наружу не отдаём внутреннюю карту, иначе мутация из виджета
+  /// тихо меняла бы состояние хранилища.
+  Map<String, dynamic>? get cachedData =>
+      _cachedData == null ? null : Map<String, dynamic>.from(_cachedData!);
 
   bool get _isFresh {
     if (_lastUpdateTime == null) return false;
-    return DateTime.now().difference(_lastUpdateTime!) <= _cacheMaxAge;
+    return DateTime.now().difference(_lastUpdateTime!) <= cacheMaxAge;
   }
+
+  /// Кеш пригоден для показа: есть погода и она не старше [cacheMaxAge].
+  bool get isCacheUsable => _isFresh && _cachedData?['weather'] is Map;
 
   bool _hasSection(String key) => _cachedData?[key] is Map<String, dynamic>;
 
@@ -30,6 +63,9 @@ class DataSystem {
   bool get isSunDataValid => _isFresh && _hasSection('sunData');
   bool get isExtraMetricsValid => _isFresh && _hasSection('extraMetrics');
   bool get isLocationValid => _isFresh && _cachedData?['locationDetails'] is Map;
+
+  /// Сериализация записей в файл: пока пишет один, остальные ждут.
+  Future<void> _writeLock = Future<void>.value();
 
   Future<File> _getFile() async {
     final directory = await getApplicationDocumentsDirectory();
@@ -46,14 +82,29 @@ class DataSystem {
       if (!await file.exists()) return;
 
       final contents = await file.readAsString();
+      if (contents.trim().isEmpty) return;
+
       final rawData = json.decode(contents);
-      if (rawData == null) return;
+      if (rawData is! Map<String, dynamic>) {
+        debugPrint('DataSystem: кеш имеет неизвестный формат, игнорируем');
+        return;
+      }
+
+      // Кеш, записанный другой версией схемы, нельзя читать как есть.
+      final version = rawData['schemaVersion'];
+      if (version is! int || version < _schemaVersion) {
+        debugPrint(
+          'DataSystem: кеш версии $version устарел, будет перезаписан',
+        );
+        return;
+      }
 
       _cachedData = _deserializeCache(rawData);
-      if (_cachedData != null && _cachedData!.containsKey('timestamp')) {
-        _lastUpdateTime = DateTime.tryParse(_cachedData!['timestamp'].toString());
-      }
+      _lastUpdateTime = DateTime.tryParse(
+        _cachedData!['timestamp']?.toString() ?? '',
+      );
     } catch (e) {
+      // Битый кеш не должен мешать приложению: сбрасываем и идём в сеть.
       debugPrint('DataSystem: ошибка загрузки кеша - $e');
       _cachedData = null;
       _lastUpdateTime = null;
@@ -62,26 +113,37 @@ class DataSystem {
 
   Map<String, dynamic> _deserializeCache(Map<String, dynamic> raw) {
     return {
-      'weather': raw['weather'],
-      'forecast': raw['forecast'],
-      'airQuality': raw['airQuality'],
-      'sunData': _deserializeSunData(raw['sunData']),
-      'extraMetrics': raw['extraMetrics'],
+      'weather': _asMap(raw['weather']),
+      'forecast': _asMap(raw['forecast']),
+      'airQuality': _asMap(raw['airQuality']),
+      'sunData': _deserializeSunData(_asMap(raw['sunData'])),
+      'extraMetrics': _asMap(raw['extraMetrics']),
       'city': raw['city'],
-      'lat': raw['lat'],
-      'lon': raw['lon'],
+      'lat': WeatherNormalizer.toDouble(raw['lat']),
+      'lon': WeatherNormalizer.toDouble(raw['lon']),
       'timestamp': raw['timestamp'],
-      'locationDetails': raw['locationDetails'],
+      'locationDetails': _asMap(raw['locationDetails']),
       'isLocationManuallySelected': raw['isLocationManuallySelected'] == true,
     };
+  }
+
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
   }
 
   Map<String, dynamic>? _deserializeSunData(Map<String, dynamic>? sun) {
     if (sun == null) return null;
     return {
-        'sunrise': sun['sunrise'] != null ? DateTime.tryParse(sun['sunrise'].toString()) : null,
-        'sunset': sun['sunset'] != null ? DateTime.tryParse(sun['sunset'].toString()) : null,
-      'timezoneOffsetSeconds': sun['timezoneOffsetSeconds'] as int? ?? 0,
+      'sunrise': sun['sunrise'] != null
+          ? DateTime.tryParse(sun['sunrise'].toString())
+          : null,
+      'sunset': sun['sunset'] != null
+          ? DateTime.tryParse(sun['sunset'].toString())
+          : null,
+      'timezoneOffsetSeconds':
+          WeatherNormalizer.toInt(sun['timezoneOffsetSeconds']),
     };
   }
 
@@ -105,35 +167,50 @@ class DataSystem {
     double? lon,
     Map<String, dynamic>? locationDetails,
     bool isLocationManuallySelected = false,
-  }) async {
-    try {
-      if (weatherData == null || weatherData.isEmpty) {
-        debugPrint('DataSystem: попытка сохранить пустые данные');
-        return;
+  }) {
+    // Сохраняем снимок значений: между постановкой в очередь и реальной записью
+    // поля экрана могут поменяться.
+    final payload = <String, dynamic>{
+      'schemaVersion': _schemaVersion,
+      'weather': weatherData,
+      'forecast': forecastData,
+      'airQuality': airQualityData,
+      'sunData': _serializeSunData(sunData),
+      'extraMetrics': extraMetrics,
+      'city': cityName,
+      'lat': lat,
+      'lon': lon,
+      'timestamp': DateTime.now().toIso8601String(),
+      'locationDetails': locationDetails,
+      'isLocationManuallySelected': isLocationManuallySelected,
+    };
+    final savedAt = DateTime.now();
+
+    final completer = Completer<void>();
+    _writeLock = _writeLock.then((_) async {
+      try {
+        if (weatherData == null || weatherData.isEmpty) {
+          debugPrint('DataSystem: попытка сохранить пустые данные');
+          completer.complete();
+          return;
+        }
+
+        final file = await _getFile();
+        final tempFile = File('${file.path}.tmp');
+        await tempFile.writeAsString(json.encode(payload));
+        // Переименование атомарно: читатель увидит либо старый файл целиком,
+        // либо новый целиком.
+        await tempFile.rename(file.path);
+
+        _cachedData = _deserializeCache(payload);
+        _lastUpdateTime = savedAt;
+        completer.complete();
+      } catch (e) {
+        debugPrint('DataSystem: ошибка сохранения - $e');
+        completer.complete();
       }
-
-      final cacheData = {
-        'weather': weatherData,
-        'forecast': forecastData,
-        'airQuality': airQualityData,
-        'sunData': _serializeSunData(sunData),
-        'extraMetrics': extraMetrics,
-        'city': cityName,
-        'lat': lat,
-        'lon': lon,
-        'timestamp': DateTime.now().toIso8601String(),
-        'locationDetails': locationDetails,
-        'isLocationManuallySelected': isLocationManuallySelected,
-      };
-
-      final file = await _getFile();
-      await file.writeAsString(json.encode(cacheData));
-
-      _cachedData = _deserializeCache(cacheData);
-      _lastUpdateTime = DateTime.now();
-    } catch (e) {
-      debugPrint('DataSystem: ошибка сохранения - $e');
-    }
+    });
+    return completer.future;
   }
 
   Future<void> clearCache() async {
@@ -150,85 +227,58 @@ class DataSystem {
     }
   }
 
+  /// Кеш, пригодный для показа: в нём есть блок погоды.
+  ///
+  /// Возраст здесь не проверяется намеренно: главный экран показывает кеш сразу
+  /// и параллельно обновляет его с сети, а пользователь видит метку времени
+  /// обновления. «Стоит ли вообще ходить в сеть» решает [isCacheUsable].
   Map<String, dynamic>? getValidCache() {
-    if (_cachedData?['weather'] is Map<String, dynamic>) return _cachedData;
-    return null;
+    if (_cachedData?['weather'] is! Map<String, dynamic>) return null;
+    return cachedData;
   }
 
-  Map<String, dynamic>? getAllCachedData() {
-    return _cachedData;
+  Map<String, dynamic>? getAllCachedData() => cachedData;
+
+  Map<String, dynamic>? getWeatherFromCache() => _asMap(_cachedData?['weather']);
+
+  Map<String, dynamic>? getForecastFromCache() =>
+      _asMap(_cachedData?['forecast']);
+
+  Map<String, dynamic>? getAirQualityFromCache() =>
+      _asMap(_cachedData?['airQuality']);
+
+  Map<String, dynamic>? getSunDataFromCache() => _asMap(_cachedData?['sunData']);
+
+  Map<String, dynamic>? getExtraMetricsFromCache() =>
+      _asMap(_cachedData?['extraMetrics']);
+
+  String? getCityFromCache() => _cachedData?['city'] as String?;
+
+  /// Выбрана ли текущая локация вручную (поиском), а не по GPS.
+  bool? isLocationManuallySelectedFromCache() {
+    final value = _cachedData?['isLocationManuallySelected'];
+    return value is bool ? value : null;
   }
 
-  Map<String, dynamic>? getWeatherFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('weather')) {
-      return _cachedData!['weather'];
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? getForecastFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('forecast')) {
-      return _cachedData!['forecast'];
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? getAirQualityFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('airQuality')) {
-      return _cachedData!['airQuality'];
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? getSunDataFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('sunData')) {
-      return _cachedData!['sunData'];
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? getExtraMetricsFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('extraMetrics')) {
-      return _cachedData!['extraMetrics'];
-    }
-    return null;
-  }
-
-  String? getCityFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('city')) {
-      return _cachedData!['city'];
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? getLocationDetailsFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('locationDetails')) {
-      return _cachedData!['locationDetails'] as Map<String, dynamic>?;
-    }
-    return null;
-  }
+  Map<String, dynamic>? getLocationDetailsFromCache() =>
+      _asMap(_cachedData?['locationDetails']);
 
   double? getLatFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('lat')) {
-      return _cachedData!['lat'] as double?;
-    }
-    return null;
+    final value = _cachedData?['lat'];
+    return value == null ? null : WeatherNormalizer.toDouble(value);
   }
 
   double? getLonFromCache() {
-    if (_cachedData != null && _cachedData!.containsKey('lon')) {
-      return _cachedData!['lon'] as double?;
-    }
-    return null;
+    final value = _cachedData?['lon'];
+    return value == null ? null : WeatherNormalizer.toDouble(value);
   }
 
   String getLastUpdateTimeString() {
     final localeManager = LocaleManager();
+    final updatedAt = _lastUpdateTime;
+    if (updatedAt == null) return localeManager.getText('never');
 
-    if (_lastUpdateTime == null) return localeManager.getText('never');
-
-    final now = DateTime.now();
-    final difference = now.difference(_lastUpdateTime!);
+    final difference = DateTime.now().difference(updatedAt);
 
     if (difference.inMinutes < 1) return localeManager.getText('just_now');
     if (difference.inMinutes < 60) {
@@ -240,8 +290,12 @@ class DataSystem {
     return '${difference.inDays} ${localeManager.getText('days_ago')}';
   }
 
-  // Метод больше не нужен, но оставляем для обратной совместимости
+  /// Доля «свежести» кеша для индикатора обновления: 1 — только что сохранён,
+  /// 0 — кеш старше [cacheMaxAge].
   double getCacheAgingProgress() {
-    return 0.0; // Всегда 0, так как кеш никогда не устаревает
+    if (_lastUpdateTime == null) return 0;
+    final elapsed = DateTime.now().difference(_lastUpdateTime!);
+    final ratio = elapsed.inSeconds / cacheMaxAge.inSeconds;
+    return ratio.clamp(0.0, 1.0).toDouble();
   }
 }

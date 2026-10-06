@@ -31,39 +31,4 @@ class TimeUtils {
         ? DateFormat('h:mm').format(time)
         : DateFormat.Hm().format(time);
   }
-
-  /// Форматирует время для прогноза с поддержкой "Сейчас"
-  static String formatForecastTime(BuildContext context, DateTime time, {bool isNow = false}) {
-    if (isNow) return 'Сейчас';
-    return formatTimeShort(context, time);
-  }
-
-  /// Форматирует время с принудительным указанием формата
-  /// Если одновременно указаны force12Hour и force24Hour, приоритет у 12-часового
-  static String formatTimeForced(
-    DateTime time, {
-    bool force12Hour = false,
-    bool force24Hour = false,
-  }) {
-    assert(!(force12Hour && force24Hour), 'Нельзя одновременно указать force12Hour и force24Hour');
-    
-    if (force12Hour) return format12Hour(time);
-    if (force24Hour) return format24Hour(time);
-    // Если формат не указан, используем 24-часовой как fallback
-    return format24Hour(time);
-  }
-
-  /// Форматирует время с принудительным указанием формата и контекстом
-  static String formatTimeForcedWithContext(
-    BuildContext context,
-    DateTime time, {
-    bool force12Hour = false,
-    bool force24Hour = false,
-  }) {
-    assert(!(force12Hour && force24Hour), 'Нельзя одновременно указать force12Hour и force24Hour');
-    
-    if (force12Hour) return format12Hour(time);
-    if (force24Hour) return format24Hour(time);
-    return formatTime(context, time);
-  }
 }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'dart:ui' as ui;
 import 'dart:math';
 import '../services/weather_service.dart';
+import '../services/weather_normalizer.dart';
 import '../utils/weather_utils.dart';
 import '../core/data_system.dart';
 import '../core/loading_system.dart';
 import '../core/locale_manager.dart';
+import '../widgets/app_loading_indicator.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -25,7 +28,6 @@ class ActivityScreenState extends State<ActivityScreen> {
   double? lon;
 
   bool _isLoading = false;
-  bool _isRefreshing = false;
   String _errorMessage = '';
   bool _hasData = false;
   bool _dataSystemInitialized = false;
@@ -37,6 +39,9 @@ class ActivityScreenState extends State<ActivityScreen> {
 
   final ScrollController _scrollController = ScrollController();
 
+  /// Клиент текущего сетевого запроса: через close() он обрывается.
+  http.Client? _activeRequestClient;
+
   @override
   void initState() {
     super.initState();
@@ -45,8 +50,8 @@ class ActivityScreenState extends State<ActivityScreen> {
 
   @override
   void dispose() {
+    _abortActiveRequest();
     _scrollController.dispose();
-    _loadingManager.dispose();
     super.dispose();
   }
 
@@ -104,10 +109,12 @@ class ActivityScreenState extends State<ActivityScreen> {
       extraMetrics = cachedData['extraMetrics'];
       cityName = cachedData['city'];
 
-      if (cachedData.containsKey('lat')) {
-        lat = cachedData['lat'] as double?;
-        lon = cachedData['lon'] as double?;
-      }
+      // `as double?` здесь ронял экран на кеше, где координаты сохранились
+      // целыми числами.
+      final cachedLat = cachedData['lat'];
+      final cachedLon = cachedData['lon'];
+      if (cachedLat != null) lat = WeatherNormalizer.toDouble(cachedLat);
+      if (cachedLon != null) lon = WeatherNormalizer.toDouble(cachedLon);
     });
   }
 
@@ -133,20 +140,47 @@ class ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
-  Future<void> _fetchDataInBackground() async {
+  /// Единственное место, где экран ходит в сеть за погодой.
+  ///
+  /// Раньше одинаковая последовательность «запрос → кеш → setState» была
+  /// скопирована в _fetchData, _fetchDataInBackground и _refreshData, поэтому
+  /// правки в одном варианте расходились с остальными.
+  ///
+  /// Возвращает true, если данные пришли. [silentOnError] нужен фоновым
+  /// обновлениям: там ошибка не должна перетирать уже показанные данные.
+  Future<bool> _loadWeather({
+    bool showFullScreenLoader = false,
+    bool silentOnError = false,
+  }) async {
     final requestId = ++_requestGeneration;
+    http.Client? client;
+    if (showFullScreenLoader && mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+    }
+
     try {
       if (lat == null || lon == null) {
         final position = await WeatherService.getCurrentPosition();
-        if (!mounted || requestId != _requestGeneration) return;
+        if (!mounted || requestId != _requestGeneration) return false;
         lat = position.latitude;
         lon = position.longitude;
       }
 
-      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
+      _abortActiveRequest();
+      client = http.Client();
+      _activeRequestClient = client;
+
+      final response = await WeatherService.fetchAllWeatherData(
+        lat!,
+        lon!,
+        client: client,
+      );
 
       if (!mounted || requestId != _requestGeneration || response.hasError) {
-        return;
+        return false;
       }
 
       final weather = response.weather;
@@ -155,8 +189,8 @@ class ActivityScreenState extends State<ActivityScreen> {
         weather,
         response.extraMetrics,
       );
-
-      final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
+      final cityNameFromData =
+          weather['name'] ?? _localeManager.getText('unknown');
 
       await _dataSystem.saveToCache(
         weatherData: weather,
@@ -169,18 +203,45 @@ class ActivityScreenState extends State<ActivityScreen> {
         lon: lon,
       );
 
-      if (!mounted || requestId != _requestGeneration) return;
+      if (!mounted || requestId != _requestGeneration) return false;
       setState(() {
         weatherData = weather;
         airQualityData = airQuality;
         extraMetrics = extraMetricsFromResponse;
         cityName = cityNameFromData;
+        _isLoading = false;
         _hasData = true;
       });
       _loadingManager.finishLoading(fromStorage: false);
-    } catch (e) {
-      // Фоновая ошибка — игнорируем
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('ActivityScreen: загрузка не удалась - $e\n$stackTrace');
+      if (!mounted || requestId != _requestGeneration || silentOnError) {
+        return false;
+      }
+      setState(() {
+        _isLoading = false;
+        _errorMessage = _localeManager.getText('no_internet');
+      });
+      _loadingManager.setError(_errorMessage);
+      return false;
+    } finally {
+      if (identical(_activeRequestClient, client)) {
+        _activeRequestClient = null;
+      }
+      client?.close();
     }
+  }
+
+  /// Обрывает текущий сетевой запрос, если он ещё идёт.
+  void _abortActiveRequest() {
+    final client = _activeRequestClient;
+    _activeRequestClient = null;
+    client?.close();
+  }
+
+  Future<void> _fetchDataInBackground() async {
+    await _loadWeather(silentOnError: true);
   }
 
   Future<void> _getLocationAndData() async {
@@ -197,141 +258,21 @@ class ActivityScreenState extends State<ActivityScreen> {
       lat = position.latitude;
       lon = position.longitude;
       _hasSelectedLocation = false;
-      await _fetchData();
     } catch (e) {
+      debugPrint('ActivityScreen: GPS недоступен, беру демо-координаты - $e');
       if (!mounted || requestId != _requestGeneration) return;
       lat = 55.7558;
       lon = 37.6173;
       _hasSelectedLocation = false;
-      await _fetchData();
     }
+    await _loadWeather(showFullScreenLoader: true);
   }
 
-  Future<void> _fetchData() async {
-    final requestId = ++_requestGeneration;
-    try {
-      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
-      if (!mounted || requestId != _requestGeneration) return;
-
-      if (response.hasError) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = _localeManager.getText('no_internet');
-        });
-        _loadingManager.setError(_errorMessage);
-        return;
-      }
-
-      final weather = response.weather;
-      final airQuality = response.airQuality;
-      final extraMetricsFromResponse = _extractExtraMetrics(
-        weather,
-        response.extraMetrics,
-      );
-
-      final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
-
-      await _dataSystem.saveToCache(
-        weatherData: weather,
-        forecastData: null,
-        airQualityData: airQuality,
-        sunData: null,
-        extraMetrics: extraMetricsFromResponse,
-        cityName: cityNameFromData,
-        lat: lat,
-        lon: lon,
-      );
-
-      if (!mounted || requestId != _requestGeneration) return;
-      setState(() {
-        weatherData = weather;
-        airQualityData = airQuality;
-        extraMetrics = extraMetricsFromResponse;
-        cityName = cityNameFromData;
-        _isLoading = false;
-        _hasData = true;
-      });
-
-      _loadingManager.finishLoading(fromStorage: false);
-    } catch (e) {
-      if (!mounted || requestId != _requestGeneration) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = _localeManager.getText('no_internet');
-      });
-      _loadingManager.setError(_errorMessage);
-    }
-  }
+  Future<void> _fetchData() => _loadWeather(showFullScreenLoader: true);
 
   Future<void> _refreshData() async {
-    final requestId = ++_requestGeneration;
-    if (!mounted) return;
-    setState(() {
-      _isRefreshing = true;
-    });
     _loadingManager.startRefreshing();
-
-    try {
-      if (lat == null || lon == null) {
-        final position = await WeatherService.getCurrentPosition();
-        if (!mounted || requestId != _requestGeneration) return;
-        lat = position.latitude;
-        lon = position.longitude;
-      }
-
-      final response = await WeatherService.fetchAllWeatherData(lat!, lon!);
-      if (!mounted || requestId != _requestGeneration) return;
-
-      if (response.hasError) {
-        setState(() {
-          _isRefreshing = false;
-        });
-        _loadingManager.setError(_localeManager.getText('refresh_error'));
-        return;
-      }
-
-      final weather = response.weather;
-      final airQuality = response.airQuality;
-      final extraMetricsFromResponse = _extractExtraMetrics(
-        weather,
-        response.extraMetrics,
-      );
-
-      final cityNameFromData = weather['name'] ?? _localeManager.getText('unknown');
-
-      await _dataSystem.saveToCache(
-        weatherData: weather,
-        forecastData: null,
-        airQualityData: airQuality,
-        sunData: null,
-        extraMetrics: extraMetricsFromResponse,
-        cityName: cityNameFromData,
-        lat: lat,
-        lon: lon,
-      );
-
-      if (!mounted || requestId != _requestGeneration) return;
-      setState(() {
-        weatherData = weather;
-        airQualityData = airQuality;
-        extraMetrics = extraMetricsFromResponse;
-        cityName = cityNameFromData;
-        _isRefreshing = false;
-        _hasData = true;
-      });
-
-      _loadingManager.finishLoading(fromStorage: false);
-    } catch (e) {
-      if (!mounted || requestId != _requestGeneration) return;
-      setState(() {
-        _isRefreshing = false;
-      });
-      _loadingManager.setError(_localeManager.getText('refresh_error'));
-    } finally {
-      if (mounted && requestId == _requestGeneration) {
-        _isRefreshing = false;
-      }
-    }
+    await _loadWeather();
   }
 
   Map<String, dynamic> _extractExtraMetrics(
@@ -404,18 +345,14 @@ class ActivityScreenState extends State<ActivityScreen> {
         child: Stack(
           children: [
             if (_isLoading && !_hasData)
-              const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  strokeWidth: 3,
-                ),
-              )
+              const AppLoadingOverlay()
             else if (_errorMessage.isNotEmpty && !_hasData)
               _buildError()
             else if (_hasData || weatherData != null)
               RefreshIndicator(
                 onRefresh: _refreshData,
                 color: Colors.white,
+                backgroundColor: Colors.transparent,
                 child: _buildContent(),
               )
             else
@@ -425,7 +362,6 @@ class ActivityScreenState extends State<ActivityScreen> {
                   style: const TextStyle(color: Color(0xFFa0a0a0)),
                 ),
               ),
-            if (_isRefreshing) _buildRefreshOverlay(),
             if (_loadingManager.isOffline && _hasData)
               StatusToast(
                 isVisible: true,
@@ -440,28 +376,6 @@ class ActivityScreenState extends State<ActivityScreen> {
                     : _localeManager.getText('update_failed'),
               ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRefreshOverlay() {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.3),
-      child: Center(
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              strokeWidth: 3,
-            ),
-          ),
         ),
       ),
     );

@@ -5,6 +5,7 @@ import '../core/data_system.dart';
 import '../constants/settings_const.dart';
 import '../core/locale_manager.dart';
 import '../core/app_version.dart';
+import '../widgets/app_loading_indicator.dart';
 
 //  ЭКРАН НАСТРОЕК
 
@@ -48,17 +49,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadDataSize() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
 
     try {
       final dataSize = await _storageSystem.getCacheSize();
-
+      if (!mounted) return;
       setState(() {
         _dataSize = dataSize;
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Ошибка в _loadDataSize: $e');
+      debugPrint('SettingsScreen: не удалось посчитать размер данных - $e');
+      if (!mounted) return;
       setState(() {
         _dataSize = 0;
         _isLoading = false;
@@ -67,42 +69,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _clearData() async {
-    setState(() => _isClearing = true);
+    if (mounted) setState(() => _isClearing = true);
 
+    // Ошибки очистки показываем пользователю: раньше кнопка просто переставала
+    // крутить спиннер, и было непонятно, очистилось что-то или нет.
     try {
-      await _storageSystem.clearAllCache(_dataSystem);
+      await _storageSystem.clearAllCache();
       await _loadDataSize();
-      if (mounted) {
-        setState(() => _isClearing = false);
-      }
     } catch (e) {
-      debugPrint('Ошибка в _clearData: $e');
-      if (mounted) {
-        setState(() => _isClearing = false);
-      }
+      debugPrint('SettingsScreen: очистка не удалась - $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_localeManager.getText('clear_failed'))),
+      );
+    } finally {
+      if (mounted) setState(() => _isClearing = false);
     }
   }
-
-  /* // БЛОК СВЯЗИ С TELEGRAM ЗАКОММЕНТИРОВАН
-  Future<void> _reportBug() async {
-    final Uri telegramAppUri = Uri.parse('tg://resolve?domain=${SettingsConst.telegramUsername}');
-    final Uri telegramWebUri = Uri.parse('https://t.me/${SettingsConst.telegramUsername}');
-
-    try {
-      if (await canLaunchUrl(telegramAppUri)) {
-        await launchUrl(telegramAppUri, mode: LaunchMode.externalApplication);
-        return;
-      }
-      await launchUrl(telegramWebUri, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      try {
-        await launchUrl(telegramWebUri, mode: LaunchMode.externalApplication);
-      } catch (e) {
-        debugPrint('Не удалось открыть Telegram: $e');
-      }
-    }
-  }
-  // КОНЕЦ БЛОКА TELEGRAM */
 
   void _showChangelog() {
     showModalBottomSheet(
@@ -129,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_isInit) {
       return const Scaffold(
         backgroundColor: SettingsConst.bgScreen,
-        body: Center(child: CircularProgressIndicator()),
+        body: AppLoadingOverlay(),
       );
     }
 
@@ -153,10 +136,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 24),
                         _buildLanguageSection(),
                         const SizedBox(height: 24),
-                        /* // СЕКЦИЯ "ПОМОЩЬ И ОБРАТНАЯ СВЯЗЬ" ЗАКОММЕНТИРОВАНА
-                        _buildReportSection(),
-                        const SizedBox(height: 24),
-                        // КОНЕЦ СЕКЦИИ */
                         _buildAboutSection(),
                         const SizedBox(height: 24),
                         _buildChangelogButton(),
@@ -392,16 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         elevation: 0,
                       ),
                       child: _isClearing
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  SettingsConst.textPrimary,
-                                ),
-                              ),
-                            )
+                          ? const AppLoadingIndicator(size: 20)
                           : Text(
                               _localeManager.getText('clear_data'),
                               style: SettingsConst.tsButtonText,
@@ -416,67 +386,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
-  /* // СЕКЦИЯ "ПОМОЩЬ И ОБРАТНАЯ СВЯЗЬ" - НЕЙТРАЛЬНАЯ ВЕРСИЯ (ЗАКОММЕНТИРОВАНА)
-  Widget _buildReportSection() {
-    return FadeInWrapper(
-      duration: SettingsConst.durSectionFade2,
-      offsetY: 10,
-      child: Container(
-        decoration: BoxDecoration(
-          color: SettingsConst.bgCard,
-          borderRadius: BorderRadius.circular(SettingsConst.radiusCard),
-          border: SettingsConst.defaultBorder,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(SettingsConst.radiusCard),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: SettingsConst.blurGlass, sigmaY: SettingsConst.blurGlass),
-            child: Padding(
-              padding: SettingsConst.padCardContent,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: SettingsConst.sectionIconBoxSize,
-                        height: SettingsConst.sectionIconBoxSize,
-                        decoration: BoxDecoration(
-                          color: SettingsConst.bgIconBox,
-                          borderRadius: BorderRadius.circular(SettingsConst.radiusIconBox),
-                          border: SettingsConst.defaultBorder,
-                        ),
-                        child: const Icon(Icons.help_outline_rounded, color: SettingsConst.textPrimary, size: SettingsConst.sectionIconSize),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Обратная связь', style: SettingsConst.tsSectionTitle),
-                            SizedBox(height: 2),
-                            Text('Помогите нам стать лучше', style: SettingsConst.tsSectionSubtitle),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _buildMenuButton(
-                    icon: Icons.email_outlined, 
-                    label: 'Написать нам', 
-                    onTap: _sendFeedback,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-  // КОНЕЦ СЕКЦИИ "ПОМОЩЬ И ОБРАТНАЯ СВЯЗЬ" */
 
   Widget _buildAboutSection() {
     return FadeInWrapper(

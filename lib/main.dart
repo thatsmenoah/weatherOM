@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- ДОБАВИТЬ ЭТУ СТРОКУ
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -337,11 +337,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          const Offstage(
-            offstage: true,
-            child: SettingsScreen(),
-          ),
-
           _buildBottomNav(),
           if (_isMenuOpen) _buildMenuOverlay(),
         ],
@@ -534,9 +529,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     // Уже скачано — запускаем системный установщик.
     if (_updateState == UpdatePillState.ready) {
       final file = _downloadedApk;
-      if (file != null) {
-        await UpdateService.instance.installApk(file);
-      }
+      if (file == null) return;
+      final outcome = await UpdateService.instance.installApk(file);
+      if (!mounted || outcome == InstallOutcome.opened) return;
+      // Установщик не открылся: раньше это было тихо, пользователь ничего не
+      // видел и гадал, почему ничего не происходит.
+      _showUpdateProblem(LocaleManager().getText('install_failed'));
       return;
     }
 
@@ -555,7 +553,14 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       debugPrint('[Update] download failed: $e');
       if (!mounted) return;
       setState(() => _updateState = UpdatePillState.idle);
+      _showUpdateProblem(LocaleManager().getText('update_failed'));
     }
+  }
+
+  void _showUpdateProblem(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   /// Кнопка обновления в нижней навигации (или распорка, если обновления нет).

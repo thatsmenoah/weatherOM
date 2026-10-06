@@ -58,9 +58,6 @@ class SettingsConst {
   static const Duration durSectionFade3 = Duration(milliseconds: 600);
 
   // ПРОЧЕЕ
-  /* // ← ЗАКОММЕНТИРОВАНО (связано с Telegram)
-  static const String telegramUsername = 'durovfm';
-  // КОНЕЦ */
   static const String copyrightText = '© 2026 Weather Cloud';
 
   // ПЕРЕИСПОЛЬЗУЕМЫЕ БОРДЕРЫ
@@ -73,7 +70,8 @@ class SettingsConst {
 static const String changelogText = ''
   // 1.1.2patch
   '1.1.2patch\n'
-  'Current location in search.\n\n'
+  'Architectural Changes.\n\n'
+  '- Major system overhaul, architectural refactoring, and technical debt cleanup.\n\n'
   '- Added an "Current location" section above recent searches.\n\n'
   '- One tap returns the weather to your real GPS location.\n\n'
 

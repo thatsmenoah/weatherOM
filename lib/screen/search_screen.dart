@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/settings_const.dart';
 import '../core/locale_manager.dart';
 import '../services/weather_service.dart';
+import '../widgets/app_loading_indicator.dart';
 
 class SearchScreen extends StatefulWidget {
   final Function(double lat, double lon, String name)? onLocationSelected;
@@ -171,7 +172,7 @@ class _SearchScreenState extends State<SearchScreen>
     });
 
     try {
-      final language = _localeManager.currentLocale == 'Русский' ? 'ru' : 'en';
+      final language = _localeManager.languageCode;
       final uri = Uri.https(
         'geocoding-api.open-meteo.com',
         '/v1/search',
@@ -481,9 +482,7 @@ class _SearchScreenState extends State<SearchScreen>
     required String emptyText,
   }) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      );
+      return const AppLoadingOverlay();
     }
     if (locations.isEmpty) {
       return _buildEmptyState(Icons.location_off_outlined, emptyText);
@@ -495,51 +494,11 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   Widget _buildLocationRow(_LocationEntry location) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
+    return _LocationCardSurface(
+      onTap: () => _selectLocation(location),
       child: Row(
         children: [
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => _selectLocation(location),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      location.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (location.subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        location.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.45),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
+          Expanded(child: _LocationCardText(location: location)),
           IconButton(
             tooltip: _localeManager.getText('favorites_title'),
             onPressed: () => _toggleFavorite(location),
@@ -571,14 +530,7 @@ class _SearchScreenState extends State<SearchScreen>
         ),
         child: Row(
           children: [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
-            ),
+            const AppLoadingIndicator(size: 18),
             const SizedBox(width: 14),
             Text(
               _localeManager.getText('detecting_location'),
@@ -592,71 +544,32 @@ class _SearchScreenState extends State<SearchScreen>
       );
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: _onCurrentLocationTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.my_location_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      location.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (location.subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        location.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.45),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.35),
-              ),
-              const SizedBox(width: 2),
-            ],
+    return _LocationCardSurface(
+      highlight: true,
+      onTap: _onCurrentLocationTap,
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.my_location_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
-        ),
+          const SizedBox(width: 12),
+          Expanded(child: _LocationCardText(location: location)),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.white.withValues(alpha: 0.35),
+          ),
+          const SizedBox(width: 2),
+        ],
       ),
     );
   }
@@ -839,6 +752,85 @@ class _SearchScreenState extends State<SearchScreen>
           const SizedBox(width: 3),
         ],
       ),
+    );
+  }
+}
+
+/// Общая подложка карточек локаций (результаты поиска, недавние, избранное).
+///
+/// Раньше одна и та же декорация и отступы были скопированы в три билдера,
+/// и правка в одном из них не доезжала до остальных.
+class _LocationCardSurface extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  /// Актуальная локация выделяется чуть более заметной рамкой.
+  final bool highlight;
+
+  const _LocationCardSurface({
+    required this.child,
+    this.onTap,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = BorderRadius.all(Radius.circular(14));
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      child: child,
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: radius,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: highlight ? 0.14 : 0.07),
+        ),
+      ),
+      child: onTap == null
+          ? content
+          : InkWell(borderRadius: radius, onTap: onTap, child: content),
+    );
+  }
+}
+
+/// Название локации с подписью. Подпись прячется, если её нет.
+class _LocationCardText extends StatelessWidget {
+  final _LocationEntry location;
+
+  const _LocationCardText({required this.location});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          location.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (location.subtitle.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(
+            location.subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
