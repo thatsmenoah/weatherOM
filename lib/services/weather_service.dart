@@ -450,9 +450,11 @@ class WeatherService {
       airQualityData = WeatherNormalizer.airQualityFallback();
     }
 
+    final localeManager = LocaleManager();
+
     return {
-      'weather': WeatherNormalizer.weather(result),
-      'forecast': WeatherNormalizer.forecast(result),
+      'weather': WeatherNormalizer.weather(result, localeManager),
+      'forecast': WeatherNormalizer.forecast(result, localeManager),
       'airQuality': airQualityData,
       'sunData': WeatherNormalizer.sunData(result),
       'extraMetrics': WeatherNormalizer.extraMetrics(result),

@@ -7,6 +7,7 @@ import '../services/weather_normalizer.dart';
 import '../utils/weather_utils.dart';
 import '../core/data_system.dart';
 import '../core/loading_system.dart';
+import '../widgets/loading_widgets.dart';
 import '../core/locale_manager.dart';
 import '../widgets/app_loading_indicator.dart';
 

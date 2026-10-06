@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -7,9 +7,11 @@ import 'package:http/http.dart' as http;
 import '../core/data_system.dart';
 import '../core/tips_system.dart';
 import '../core/loading_system.dart';
+import '../widgets/loading_widgets.dart';
 import '../services/weather_service.dart';
 import '../services/weather_normalizer.dart';
 import '../utils/weather_utils.dart';
+import '../utils/map_utils.dart';
 import '../constants/weather_const.dart';
 import '../widgets/app_loading_indicator.dart';
 import '../widgets/compact_weather_header.dart';
@@ -22,7 +24,7 @@ import '../core/locale_manager.dart';
 import '../widgets/error_dialog.dart';
 
 // ============================================================
-// ОСНОВНОЙ ЭКРАН ПОГОДЫ
+// РћРЎРќРћР’РќРћР™ Р­РљР РђРќ РџРћР“РћР”Р«
 // ============================================================
 
 class WeatherScreen extends StatefulWidget {
@@ -43,10 +45,10 @@ class WeatherScreenState extends State<WeatherScreen>
   Map<String, dynamic>? airQualityData;
   Map<String, dynamic>? sunData;
   Map<String, dynamic>? locationDetails;
-  String cityName = 'Загрузка...';
-  String displayLocation = 'Загрузка...';
+  String cityName = 'Р—Р°РіСЂСѓР·РєР°...';
+  String displayLocation = 'Р—Р°РіСЂСѓР·РєР°...';
 
-  String locationText = 'Загрузка...';
+  String locationText = 'Р—Р°РіСЂСѓР·РєР°...';
   String? subLocationText;
 
   double? lat;
@@ -55,8 +57,8 @@ class WeatherScreenState extends State<WeatherScreen>
   double? get currentLon => lon;
   String get currentCityName => cityName;
 
-  // Реальные координаты устройства. Они не меняются при ручном выборе города,
-  // поэтому по ним всегда можно вернуться к погоде "у себя на районе".
+  // Р РµР°Р»СЊРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ СѓСЃС‚СЂРѕР№СЃС‚РІР°. РћРЅРё РЅРµ РјРµРЅСЏСЋС‚СЃСЏ РїСЂРё СЂСѓС‡РЅРѕРј РІС‹Р±РѕСЂРµ РіРѕСЂРѕРґР°,
+  // РїРѕСЌС‚РѕРјСѓ РїРѕ РЅРёРј РІСЃРµРіРґР° РјРѕР¶РЅРѕ РІРµСЂРЅСѓС‚СЊСЃСЏ Рє РїРѕРіРѕРґРµ "Сѓ СЃРµР±СЏ РЅР° СЂР°Р№РѕРЅРµ".
   double? _deviceLat;
   double? _deviceLon;
   String? _deviceLocationName;
@@ -74,7 +76,7 @@ class WeatherScreenState extends State<WeatherScreen>
   final LoadingStateManager _loadingManager = LoadingStateManager();
   late final ShakeDetector _shakeDetector;
 
-  /// Клиент текущего сетевого запроса: через close() он обрывается.
+  /// РљР»РёРµРЅС‚ С‚РµРєСѓС‰РµРіРѕ СЃРµС‚РµРІРѕРіРѕ Р·Р°РїСЂРѕСЃР°: С‡РµСЂРµР· close() РѕРЅ РѕР±СЂС‹РІР°РµС‚СЃСЏ.
   http.Client? _activeRequestClient;
 
   bool _showStatusToast = false;
@@ -212,10 +214,10 @@ class WeatherScreenState extends State<WeatherScreen>
     try {
       await _dataSystem.init();
       if (!mounted || requestId != _weatherRequestId) return;
-      debugPrint('DataSystem инициализирован');
+      debugPrint('DataSystem РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ');
 
-      // Раньше чтение кеша шло без try/catch, и один битый файл оставлял экран
-      // навсегда на спиннере: ни ошибки, ни кнопки «Повторить».
+      // Р Р°РЅСЊС€Рµ С‡С‚РµРЅРёРµ РєРµС€Р° С€Р»Рѕ Р±РµР· try/catch, Рё РѕРґРёРЅ Р±РёС‚С‹Р№ С„Р°Р№Р» РѕСЃС‚Р°РІР»СЏР» СЌРєСЂР°РЅ
+      // РЅР°РІСЃРµРіРґР° РЅР° СЃРїРёРЅРЅРµСЂРµ: РЅРё РѕС€РёР±РєРё, РЅРё РєРЅРѕРїРєРё В«РџРѕРІС‚РѕСЂРёС‚СЊВ».
       _loadAllFromStorage();
 
       if (weatherData == null) {
@@ -223,7 +225,7 @@ class WeatherScreenState extends State<WeatherScreen>
       }
       if (mounted) setState(() {});
     } catch (e, stackTrace) {
-      debugPrint('_initializeApp: не удалось прочитать кеш - $e\n$stackTrace');
+      debugPrint('_initializeApp: РЅРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ РєРµС€ - $e\n$stackTrace');
       if (!mounted) return;
       _loadingManager.setError(_localeManager.getText('error'));
       if (mounted) setState(() {});
@@ -245,16 +247,16 @@ class WeatherScreenState extends State<WeatherScreen>
         _isLocationManuallySelected = false;
       }
     } catch (e) {
-      debugPrint('_updateWeatherInBackground: GPS недоступен - $e');
+      debugPrint('_updateWeatherInBackground: GPS РЅРµРґРѕСЃС‚СѓРїРµРЅ - $e');
       if (!mounted || requestId != _weatherRequestId) return;
 
-      // Диалог показываем только когда показать нечего: при живом кеше
-      // пользователь просто увидит данные и тост.
+      // Р”РёР°Р»РѕРі РїРѕРєР°Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ РєРѕРіРґР° РїРѕРєР°Р·Р°С‚СЊ РЅРµС‡РµРіРѕ: РїСЂРё Р¶РёРІРѕРј РєРµС€Рµ
+      // РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РїСЂРѕСЃС‚Рѕ СѓРІРёРґРёС‚ РґР°РЅРЅС‹Рµ Рё С‚РѕСЃС‚.
       if (weatherData == null) {
         await showLocationErrorDialog(context);
       }
 
-      // Демо-координаты — только если своих вообще нет.
+      // Р”РµРјРѕ-РєРѕРѕСЂРґРёРЅР°С‚С‹ вЂ” С‚РѕР»СЊРєРѕ РµСЃР»Рё СЃРІРѕРёС… РІРѕРѕР±С‰Рµ РЅРµС‚.
       final hasCoordinates = lat != null && lon != null;
       lat ??= 55.7558;
       lon ??= 37.6173;
@@ -267,7 +269,7 @@ class WeatherScreenState extends State<WeatherScreen>
 
   Future<void> _saveToStorage() async {
     debugPrint(
-      'Сохраняю в кеш: weather=${weatherData != null}, forecast=${forecastData != null}',
+      'РЎРѕС…СЂР°РЅСЏСЋ РІ РєРµС€: weather=${weatherData != null}, forecast=${forecastData != null}',
     );
     await _dataSystem.saveToCache(
       weatherData: weatherData,
@@ -288,8 +290,8 @@ class WeatherScreenState extends State<WeatherScreen>
     final requestLon = lon;
     if (requestLat == null || requestLon == null) return;
 
-    // Новый запрос отменяет предыдущий: закрытие клиента обрывает уже
-    // отправленный HTTP-запрос, а не даёт ему зря качать данные в фон.
+    // РќРѕРІС‹Р№ Р·Р°РїСЂРѕСЃ РѕС‚РјРµРЅСЏРµС‚ РїСЂРµРґС‹РґСѓС‰РёР№: Р·Р°РєСЂС‹С‚РёРµ РєР»РёРµРЅС‚Р° РѕР±СЂС‹РІР°РµС‚ СѓР¶Рµ
+    // РѕС‚РїСЂР°РІР»РµРЅРЅС‹Р№ HTTP-Р·Р°РїСЂРѕСЃ, Р° РЅРµ РґР°С‘С‚ РµРјСѓ Р·СЂСЏ РєР°С‡Р°С‚СЊ РґР°РЅРЅС‹Рµ РІ С„РѕРЅ.
     _abortActiveRequest();
     final client = http.Client();
     _activeRequestClient = client;
@@ -305,7 +307,7 @@ class WeatherScreenState extends State<WeatherScreen>
 
       if (response.hasError) {
         final error = response.errorMessage ?? '';
-        debugPrint('_fetchFreshData: сервис ответил ошибкой - $error');
+        debugPrint('_fetchFreshData: СЃРµСЂРІРёСЃ РѕС‚РІРµС‚РёР» РѕС€РёР±РєРѕР№ - $error');
         final isOffline = _isOfflineMessage(error);
 
         if (weatherData != null) {
@@ -341,8 +343,8 @@ class WeatherScreenState extends State<WeatherScreen>
         _showStatusToast = false;
       });
 
-      // Поиск показывает актуальную локацию в отдельной секции, даже если
-      // пользователь ушёл в другой город — запоминаем её название.
+      // РџРѕРёСЃРє РїРѕРєР°Р·С‹РІР°РµС‚ Р°РєС‚СѓР°Р»СЊРЅСѓСЋ Р»РѕРєР°С†РёСЋ РІ РѕС‚РґРµР»СЊРЅРѕР№ СЃРµРєС†РёРё, РґР°Р¶Рµ РµСЃР»Рё
+      // РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СѓС€С‘Р» РІ РґСЂСѓРіРѕР№ РіРѕСЂРѕРґ вЂ” Р·Р°РїРѕРјРёРЅР°РµРј РµС‘ РЅР°Р·РІР°РЅРёРµ.
       if (!_isLocationManuallySelected) {
         _deviceLocationName = locationText;
       }
@@ -358,7 +360,7 @@ class WeatherScreenState extends State<WeatherScreen>
       _updateTip();
       await _saveToStorage();
     } catch (e, stackTrace) {
-      debugPrint('_fetchFreshData: запрос упал - $e\n$stackTrace');
+      debugPrint('_fetchFreshData: Р·Р°РїСЂРѕСЃ СѓРїР°Р» - $e\n$stackTrace');
       if (!mounted || requestId != _weatherRequestId) return;
       final isNetworkIssue = _isNetworkError(e);
       if (weatherData != null) {
@@ -377,7 +379,7 @@ class WeatherScreenState extends State<WeatherScreen>
         if (mounted) setState(() {});
       }
     } finally {
-      // Клиент живёт только на время одного запроса.
+      // РљР»РёРµРЅС‚ Р¶РёРІС‘С‚ С‚РѕР»СЊРєРѕ РЅР° РІСЂРµРјСЏ РѕРґРЅРѕРіРѕ Р·Р°РїСЂРѕСЃР°.
       if (identical(_activeRequestClient, client)) {
         _activeRequestClient = null;
       }
@@ -385,16 +387,16 @@ class WeatherScreenState extends State<WeatherScreen>
     }
   }
 
-  /// Обрывает текущий сетевой запрос, если он ещё идёт.
+  /// РћР±СЂС‹РІР°РµС‚ С‚РµРєСѓС‰РёР№ СЃРµС‚РµРІРѕР№ Р·Р°РїСЂРѕСЃ, РµСЃР»Рё РѕРЅ РµС‰С‘ РёРґС‘С‚.
   void _abortActiveRequest() {
     final client = _activeRequestClient;
     _activeRequestClient = null;
     client?.close();
   }
 
-  /// Раньше это определялось строками вида `e.toString().contains(...)` в четырёх
-  /// местах. Ошибки http живут в [http.ClientException], таймауты — в
-  /// [TimeoutException], всё остальное — обрыв сети.
+  /// Р Р°РЅСЊС€Рµ СЌС‚Рѕ РѕРїСЂРµРґРµР»СЏР»РѕСЃСЊ СЃС‚СЂРѕРєР°РјРё РІРёРґР° `e.toString().contains(...)` РІ С‡РµС‚С‹СЂС‘С…
+  /// РјРµСЃС‚Р°С…. РћС€РёР±РєРё http Р¶РёРІСѓС‚ РІ [http.ClientException], С‚Р°Р№РјР°СѓС‚С‹ вЂ” РІ
+  /// [TimeoutException], РІСЃС‘ РѕСЃС‚Р°Р»СЊРЅРѕРµ вЂ” РѕР±СЂС‹РІ СЃРµС‚Рё.
   bool _isNetworkError(Object error) {
     if (error is TimeoutException || error is http.ClientException) {
       return true;
@@ -402,21 +404,13 @@ class WeatherScreenState extends State<WeatherScreen>
     return error.toString().contains('SocketException');
   }
 
-  /// Тот же разбор для строки, которую вернул сервис.
+  /// РўРѕС‚ Р¶Рµ СЂР°Р·Р±РѕСЂ РґР»СЏ СЃС‚СЂРѕРєРё, РєРѕС‚РѕСЂСѓСЋ РІРµСЂРЅСѓР» СЃРµСЂРІРёСЃ.
   bool _isOfflineMessage(String message) {
     return message.contains('SocketException') ||
         message.contains('ClientException') ||
         message.contains('TimeoutException') ||
         message.contains('HandshakeException') ||
         message.contains('Connection refused');
-  }
-
-  /// Кеш — это json, поэтому вложенные объекты приходят как `Map<String,
-  /// dynamic>`, но после ручной правки файла тип может быть другим.
-  Map<String, dynamic>? _asMap(dynamic value) {
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    return null;
   }
 
   void _updateDisplayLocation(WeatherResponse response) {
@@ -433,24 +427,24 @@ class WeatherScreenState extends State<WeatherScreen>
 
   void _loadAllFromStorage() {
     final allData = _dataSystem.getValidCache();
-    debugPrint('Загружаю из кеша (валидный): data=${allData != null}');
+    debugPrint('Р—Р°РіСЂСѓР¶Р°СЋ РёР· РєРµС€Р° (РІР°Р»РёРґРЅС‹Р№): data=${allData != null}');
 
     if (allData != null) {
-      debugPrint('weather содержит ключи: ${allData['weather']?.keys}');
-      debugPrint('forecast содержит ключи: ${allData['forecast']?.keys}');
+      debugPrint('weather СЃРѕРґРµСЂР¶РёС‚ РєР»СЋС‡Рё: ${allData['weather']?.keys}');
+      debugPrint('forecast СЃРѕРґРµСЂР¶РёС‚ РєР»СЋС‡Рё: ${allData['forecast']?.keys}');
 
       setState(() {
-        weatherData = _asMap(allData['weather']);
-        forecastData = _asMap(allData['forecast']);
-        airQualityData = _asMap(allData['airQuality']);
-        sunData = _asMap(allData['sunData']);
+        weatherData = asMap(allData['weather']);
+        forecastData = asMap(allData['forecast']);
+        airQualityData = asMap(allData['airQuality']);
+        sunData = asMap(allData['sunData']);
         cityName = allData['city'] ?? _localeManager.getText('loading');
-        locationDetails = _asMap(allData['locationDetails']);
+        locationDetails = asMap(allData['locationDetails']);
         _isLocationManuallySelected =
             allData['isLocationManuallySelected'] == true;
 
-        // Раньше здесь стояло `as double?`: JSON-число без дробной части
-        // разбирается как int, и кеш ронял экран целиком.
+        // Р Р°РЅСЊС€Рµ Р·РґРµСЃСЊ СЃС‚РѕСЏР»Рѕ `as double?`: JSON-С‡РёСЃР»Рѕ Р±РµР· РґСЂРѕР±РЅРѕР№ С‡Р°СЃС‚Рё
+        // СЂР°Р·Р±РёСЂР°РµС‚СЃСЏ РєР°Рє int, Рё РєРµС€ СЂРѕРЅСЏР» СЌРєСЂР°РЅ С†РµР»РёРєРѕРј.
         lat = WeatherNormalizer.toDouble(allData['lat']);
         lon = WeatherNormalizer.toDouble(allData['lon']);
       });
@@ -467,8 +461,8 @@ class WeatherScreenState extends State<WeatherScreen>
         subLocationText = null;
       }
 
-      // Если в кеше лежит погода "у себя на районе", значит эти координаты —
-      // актуальная локация устройства, а не результат ручного поиска.
+      // Р•СЃР»Рё РІ РєРµС€Рµ Р»РµР¶РёС‚ РїРѕРіРѕРґР° "Сѓ СЃРµР±СЏ РЅР° СЂР°Р№РѕРЅРµ", Р·РЅР°С‡РёС‚ СЌС‚Рё РєРѕРѕСЂРґРёРЅР°С‚С‹ вЂ”
+      // Р°РєС‚СѓР°Р»СЊРЅР°СЏ Р»РѕРєР°С†РёСЏ СѓСЃС‚СЂРѕР№СЃС‚РІР°, Р° РЅРµ СЂРµР·СѓР»СЊС‚Р°С‚ СЂСѓС‡РЅРѕРіРѕ РїРѕРёСЃРєР°.
       if (!_isLocationManuallySelected && lat != null && lon != null) {
         _deviceLat = lat;
         _deviceLon = lon;
@@ -486,7 +480,7 @@ class WeatherScreenState extends State<WeatherScreen>
           }
           _loadingManager.finishLoading(fromStorage: true);
         } catch (e) {
-          debugPrint('_loadAllFromStorage: битая метка времени в кеше - $e');
+          debugPrint('_loadAllFromStorage: Р±РёС‚Р°СЏ РјРµС‚РєР° РІСЂРµРјРµРЅРё РІ РєРµС€Рµ - $e');
           _loadingManager.finishLoading(fromStorage: true);
         }
       } else {
@@ -494,11 +488,11 @@ class WeatherScreenState extends State<WeatherScreen>
       }
 
       if (mounted) {
-        debugPrint('Обновляю UI из валидного кеша');
+        debugPrint('РћР±РЅРѕРІР»СЏСЋ UI РёР· РІР°Р»РёРґРЅРѕРіРѕ РєРµС€Р°');
         setState(() {});
       }
     } else {
-      debugPrint('Валидный кеш отсутствует');
+      debugPrint('Р’Р°Р»РёРґРЅС‹Р№ РєРµС€ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚');
       _loadingManager.startLoading();
       if (mounted) setState(() {});
     }
@@ -530,10 +524,10 @@ class WeatherScreenState extends State<WeatherScreen>
     }
   }
 
-  /// Возвращает погоду к текущему местоположению пользователя.
-  /// Возвращает координаты, по которым реально считается прогноз, либо null,
-  /// если местоположение определить не удалось и пользователь остаётся там,
-  /// где был.
+  /// Р’РѕР·РІСЂР°С‰Р°РµС‚ РїРѕРіРѕРґСѓ Рє С‚РµРєСѓС‰РµРјСѓ РјРµСЃС‚РѕРїРѕР»РѕР¶РµРЅРёСЋ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.
+  /// Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕРѕСЂРґРёРЅР°С‚С‹, РїРѕ РєРѕС‚РѕСЂС‹Рј СЂРµР°Р»СЊРЅРѕ СЃС‡РёС‚Р°РµС‚СЃСЏ РїСЂРѕРіРЅРѕР·, Р»РёР±Рѕ null,
+  /// РµСЃР»Рё РјРµСЃС‚РѕРїРѕР»РѕР¶РµРЅРёРµ РѕРїСЂРµРґРµР»РёС‚СЊ РЅРµ СѓРґР°Р»РѕСЃСЊ Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РѕСЃС‚Р°С‘С‚СЃСЏ С‚Р°Рј,
+  /// РіРґРµ Р±С‹Р».
   Future<(double, double)?> useCurrentLocation() async {
     final requestId = ++_weatherRequestId;
     var targetLat = _deviceLat;
@@ -547,7 +541,7 @@ class WeatherScreenState extends State<WeatherScreen>
       _deviceLat = position.latitude;
       _deviceLon = position.longitude;
     } catch (e) {
-      debugPrint('useCurrentLocation: GPS недоступен - $e');
+      debugPrint('useCurrentLocation: GPS РЅРµРґРѕСЃС‚СѓРїРµРЅ - $e');
     }
 
     if (!mounted || requestId != _weatherRequestId) return null;
@@ -586,7 +580,7 @@ class WeatherScreenState extends State<WeatherScreen>
   }
 
   // ============================================================
-  // ОБНОВЛЕНИЕ ПОГОДЫ
+  // РћР‘РќРћР’Р›Р•РќРР• РџРћР“РћР”Р«
   // ============================================================
   Future<void> _refreshWeather() async {
     if (_isRefreshInProgress || _loadingManager.isLoading) return;

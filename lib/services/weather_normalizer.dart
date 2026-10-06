@@ -5,6 +5,12 @@ import 'package:flutter/foundation.dart';
 import '../core/locale_manager.dart';
 import '../utils/wmo_codes.dart';
 
+// ============================================================
+//  ПЕРЕНОС ЗАВИСИМОСТЕЙ
+//  LocaleManager теперь передаётся явно — это делает функции
+//  чистыми и тестируемыми без моков.
+// ============================================================
+
 /// Приведение сырых ответов API к той структуре, которую ждёт UI.
 ///
 /// Вынесено отдельно от [WeatherService] намеренно: здесь нет ни HTTP, ни
@@ -50,8 +56,7 @@ class WeatherNormalizer {
     return localeManager.getText(WmoCodes.descriptionKey(code));
   }
 
-  static Map<String, dynamic> weather(Map<String, dynamic> data) {
-    final localeManager = LocaleManager();
+  static Map<String, dynamic> weather(Map<String, dynamic> data, LocaleManager localeManager) {
     final current = data['current'] ?? <String, dynamic>{};
     final daily = data['daily'] ?? <String, dynamic>{};
 
@@ -103,10 +108,9 @@ class WeatherNormalizer {
   /// не вернул `daily`, и подсказками приложения.
   static const int hourlyHours = 168;
 
-  static Map<String, dynamic> forecast(Map<String, dynamic> data) {
+  static Map<String, dynamic> forecast(Map<String, dynamic> data, LocaleManager localeManager) {
     final hourly = data['hourly'] ?? <String, dynamic>{};
     final daily = data['daily'] ?? <String, dynamic>{};
-    final localeManager = LocaleManager();
 
     final times = hourly['time'] as List?;
     final currentTime = data['current']?['time']?.toString();

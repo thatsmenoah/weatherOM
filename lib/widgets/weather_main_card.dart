@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/weather_const.dart';
-import '../core/loading_system.dart';
+import '../widgets/loading_widgets.dart';
 import '../core/locale_manager.dart';
 import '../utils/weather_utils.dart';
 import 'weather_screen_widgets.dart';

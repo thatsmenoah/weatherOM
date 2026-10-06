@@ -1,5 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weather_app/core/locale_manager.dart';
 import 'package:weather_app/services/weather_normalizer.dart';
+
+/// Нормализатор требует [LocaleManager] — прокидываем дефолтный (en),
+/// чтобы тесты не зависели от синглтона.
+final _locale = LocaleManager();
+Map<String, dynamic> _weather(Map<String, dynamic> raw) =>
+    WeatherNormalizer.weather(raw, _locale);
+Map<String, dynamic> _forecast(Map<String, dynamic> raw) =>
+    WeatherNormalizer.forecast(raw, _locale);
 
 /// Ответ Open-Meteo в том виде, в котором его отдаёт API: ключи snake_case,
 /// массивы параллельные, часть значений может быть null.
@@ -85,7 +94,7 @@ void main() {
 
   group('текущая погода', () {
     test('нормализует ответ в структуру для UI', () {
-      final weather = WeatherNormalizer.weather(_response());
+      final weather = _weather(_response());
 
       expect(weather['main']['temp'], 12.3);
       expect(weather['main']['feels_like'], 11.1);
@@ -102,7 +111,7 @@ void main() {
     });
 
     test('код 95 и ночь дают грозу и ночную иконку', () {
-      final weather = WeatherNormalizer.weather(
+      final weather = _weather(
         _response(
           current: {'weathercode': 95, 'is_day': 0, 'temperature_2m': 20},
         ),
@@ -113,13 +122,13 @@ void main() {
     });
 
     test('пустой ответ не роняет нормализацию', () {
-      final weather = WeatherNormalizer.weather(const {});
+      final weather = _weather(const {});
       expect(weather['main']['temp'], 0.0);
       expect((weather['weather'] as List), hasLength(1));
     });
 
     test('null в дневных массивах не считается ошибкой', () {
-      final weather = WeatherNormalizer.weather(
+      final weather = _weather(
         _response(
           daily: {
             'uv_index_max': [null],
@@ -139,7 +148,7 @@ void main() {
 
   group('прогноз', () {
     test('начинается с текущего часа и обрезается по available', () {
-      final forecast = WeatherNormalizer.forecast(_response());
+      final forecast = _forecast(_response());
       final list = forecast['list'] as List;
 
       expect(list, hasLength(2));
@@ -148,7 +157,7 @@ void main() {
     });
 
     test('не выходит за границы массива, если осталось мало часов', () {
-      final forecast = WeatherNormalizer.forecast(
+      final forecast = _forecast(
         _response(
           current: {'time': '2026-10-05T13:00'},
           hourly: {
@@ -178,14 +187,14 @@ void main() {
         'winddirection_10m_dominant': List.filled(10, 0),
       };
 
-      final forecast = WeatherNormalizer.forecast(
+      final forecast = _forecast(
         _response(hourly: hourly, daily: daily),
       );
       expect((forecast['daily'] as List), hasLength(7));
     });
 
     test('пустой почасовой ответ даёт пустые списки, а не исключение', () {
-      final forecast = WeatherNormalizer.forecast(const {});
+      final forecast = _forecast(const {});
       expect(forecast['list'], isEmpty);
       expect(forecast['daily'], isEmpty);
     });
