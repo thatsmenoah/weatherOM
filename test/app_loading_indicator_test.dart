@@ -19,7 +19,7 @@ void main() {
     expect(indicator.strokeWidth, 2.0);
     
     // 4. Сравниваем цвета напрямую как объекты, избегая устаревшего .value
-    expect(indicator.color, Colors.white);
+    expect(indicator.valueColor?.value, Colors.white);
   });
 
   testWidgets('AppLoadingIndicator уважает переданный размер', (tester) async {
