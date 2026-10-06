@@ -68,6 +68,14 @@ class SettingsConst {
 
   // CHANGELOG
 static const String changelogText = ''
+  // 1.1.3
+  '1.1.3\n'
+  'Architecture and quality release.\n\n'
+  '- WeatherNormalizer no longer hides a LocaleManager singleton inside: language is now passed explicitly, which makes the normalizer pure and testable.\n\n'
+  '- UI widgets (StatusToast, LoadingErrorWidget, UpdateTimeIndicator, NoGlowBehavior) moved out of core/ into widgets/loading_widgets.dart. Core layer now contains only business logic.\n\n'
+  '- Duplicated _asMap helpers unified into a single utils/map_utils.dart.\n\n'
+  '- Added unit tests for WeatherNormalizer and DataSystem (55 tests, all passing).\n\n'
+
   // 1.1.2patch
   '1.1.2patch\n'
   'Architectural Changes.\n\n'
